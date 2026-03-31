@@ -1,7 +1,6 @@
 /**************************************
 
 pdrexler@uni-mainz.de
-peter.drexler@exp2.physik.uni-giessen.de
 
 **************************************/
 
