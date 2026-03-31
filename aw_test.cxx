@@ -4,6 +4,11 @@ pdrexler@uni-mainz.de
 
 **************************************/
 
+// there is a counter in a2_class.h: int Read_A2_class::read_one_event(void) around line 236
+// it will stop after "counter" #s if "enable_counter"==1
+// no root output atm
+
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -37,14 +42,14 @@ int main(int argc, char *argv[])
     
   if(argc<=1){ 
     printf("No datafile set!!!\n");
-    printf("\nusage: %s datfile.dat rootfile.root [-n no_of_events] [-r (realign_first_noe)] [-m (multiple files starting with file)]\n",
+    printf("\nusage: %s datfile.dat rootfile.root [-n no_of_events]\n",
           argv[0]);
     return(-1);
   }
   else strcpy(inputfile, argv[1]);
   /*  if(argc<=2){ 
     printf("No outputfile!!!\n");
-    printf("\nusage: %s datfile.dat rootfile.root [-n no_of_events] [-r (realign_first_noe)] [-m (multiple files starting with file)]\n",
+    printf("\nusage: %s datfile.dat rootfile.root [-n no_of_events]]\n",
           argv[0]);
     return(-1);
     } else strcpy(outputfile, argv[2]);
@@ -103,6 +108,9 @@ int main(int argc, char *argv[])
   unsigned int noe=0;
   do{
     m=detector.read_one_event();  // reads one full event into internal buffer, !=0 if there is any data
+
+    // there is a counter in a2_class.h: int Read_A2_class::read_one_event(void) around line 236
+    // it will stop after counter datawords if enable_counter==1
 
     noe++; 
     if(noe>=1) m=0;  // exit after x events analysed

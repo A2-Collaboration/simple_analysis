@@ -41,7 +41,8 @@ enum { EMk2SizeTime = 32, EMk2SizeComment = 256, EMk2SizeFName = 128,
        EMk2SizeDesc = 256 };
 
 // id definitions
-enum { isNONE, isCB_Adc, isCB_Tdc, isTagger_Tdc, isTagger_Scaler};
+enum { isNONE, isTagger_Tdc, isTagger_Scaler, isPID, isMWPC,
+       isCB_Adc, isCB_Tdc, isTAPSVeto, isTAPS};
 
 
 struct AcquMk2Info_t {	       	      // 1st part of header buffer
@@ -141,37 +142,6 @@ class Read_A2_class{
     int  decode_id(int id, int is_scaler_event=0);
 };
 
-void  Read_A2_class::read_module_definitions(void){
-  //  int rv;
-  unsigned int dataword;
-  
-  modulesinfo = (struct ModuleHead *) malloc(sizeof(ModuleHead) * headerinfo.fNModule);
-  fread(modulesinfo, sizeof(ModuleHead), headerinfo.fNModule, in);
-
-  if(verboselvl>=10){
-    printf("\nModule definitions:\n");
-    for (int i = 0; i < (int) headerinfo.fNModule; i++){
-      if(i!=0 && modulesinfo[i].fIndex==0) printf("\n"); // new crate
-      printf("%2i Module %2u %5u  %10s  Channels %3d\n",
-             i, modulesinfo[i].fIndex, modulesinfo[i].fID, getModuleNamekExpModules(modulesinfo[i].fID), modulesinfo[i].fNChannel);
-    }
-  }
-  int zerocounter=-1;
-  int cur_verboselvl=verboselvl;
-  verboselvl=0;  // ignore 0s
-  do{
-    read_one_dataword(dataword);
-    if(verboselvl>=100) printf("In zero suppression: 0x%08x\n", dataword);   
-    zerocounter++;
-  }while(dataword==0);
-  printf("%i zeroes omitted (%f module headers)\n", zerocounter, (double) zerocounter/sizeof(ModuleHead));
-  printf("thrown away Dataword: 0x%08x:  ", dataword);
-  
-  verboselvl=cur_verboselvl;
-  
-  // not needed?  undo_read_one_dataword(); // I want to read out the header of the event in the eventloop again;
-}
-
 int Read_A2_class::init(char * file){
   int rv;
   strncpy(filename, file, 99);
@@ -218,6 +188,39 @@ int Read_A2_class::read_header(void){
  
   return 0;
 }
+
+void  Read_A2_class::read_module_definitions(void){
+  //  int rv;
+  unsigned int dataword;
+  
+  modulesinfo = (struct ModuleHead *) malloc(sizeof(ModuleHead) * headerinfo.fNModule);
+  fread(modulesinfo, sizeof(ModuleHead), headerinfo.fNModule, in);
+
+  if(verboselvl>=10){
+    printf("\nModule definitions:\n");
+    for (int i = 0; i < (int) headerinfo.fNModule; i++){
+      if(i!=0 && modulesinfo[i].fIndex==0) printf("\n"); // new crate
+      printf("%2i Module %2u %5u  %10s  Channels %3d\n",
+             i, modulesinfo[i].fIndex, modulesinfo[i].fID, getModuleNamekExpModules(modulesinfo[i].fID), modulesinfo[i].fNChannel);
+    }
+  }
+  int zerocounter=-1;
+  int cur_verboselvl=verboselvl;
+  verboselvl=0;  // ignore 0s
+  do{
+    read_one_dataword(dataword);
+    if(verboselvl>=100) printf("In zero suppression: 0x%08x\n", dataword);   
+    zerocounter++;
+  }while(dataword==0);
+  printf("%i zeroes omitted (%f module headers)\n", zerocounter, (double) zerocounter/sizeof(ModuleHead));
+  printf("thrown away Dataword: 0x%08x:  ", dataword);
+  
+  verboselvl=cur_verboselvl;
+  
+  // not needed?  undo_read_one_dataword(); // I want to read out the header of the event in the eventloop again;
+}
+
+
  
 int Read_A2_class::read_one_event(void){
   unsigned int dataword;// current data word
@@ -232,12 +235,14 @@ int Read_A2_class::read_one_event(void){
     printf("Data block start not normal: 0x%x (0x70707070)\n,", dataword);
   */
   read_event_header();             // read event header
-  int enable_counter=1;
-  int counter=0;
+
+  int enable_counter=1;   // for testing purposes, delete lines with counter later...
+  int counter=600;
+  int datablock_count=0;
   do{
     rv=read_one_dataword(dataword);  // read type ov event
-    if(enable_counter==1) counter++;
-    if(counter>=100)exit(0);
+    if(enable_counter==1) counter--;
+    if(counter<=0)exit(0);
     switch(dataword){
       case EScalerBuffer:
         printf("Scaler buffer\n");
@@ -258,11 +263,13 @@ int Read_A2_class::read_one_event(void){
         printf("Read Error\n");
         break;
       default:
-        if(verboselvl>=20) printf("Datablock  ");
+        if(verboselvl>=20) printf("normal data  ");
+        datablock_count++;
         decode_adc(dataword);
     }
     no_reads+=4;
   }while(dataword!=EEndEvent);
+  printf("\n %i data blocks in event\n", datablock_count);
   noe++;
   printf("\n");
    
@@ -287,8 +294,9 @@ int Read_A2_class::read_one_dataword(unsigned int &dataword){
   rv=fread((char*) &dataword, sizeof(dataword), 1, in);
   if(rv==0) exit(0);
   if(verboselvl>=20) printf("ROD: 0x%08x:  ", dataword);
+
   events++; 
-  if(events%wie_oft==0) printf("\n%i read in.",  events);
+  if(events%wie_oft==0) printf("\n%i read in.\n",  events);
   return rv;
 }
 
@@ -318,7 +326,6 @@ void Read_A2_class::decode_epics(void){
 
     printf("Channels: %u\n", epicsheaderinfo.nchan);
 
-
     char pvname[64];
     uint16_t scrap[20];
     uint16_t bytes;
@@ -330,14 +337,18 @@ void Read_A2_class::decode_epics(void){
       fread((char*) &bytes, 2, 1, in);
       fread((char*) &nelem, 2, 1, in);
       fread((char*) &type, 2, 1, in);
-      fread((char*) scrap, 2, 4, in);
-	   
+      fread((char*) scrap, 2, 4, in);  // why? Needed with CBTaggTAPS_23873.dat, otherwise the following epics pvnames will get wrong information
 	   
       printf("%i, PV: %s, bytes %u, elements=%u, type=%u\n",
              i, pvname, bytes, nelem, type);
-      printf("scrap 0: %u, scrap 1: %u, scrap 2: %u, scrap 3: %u",
+      printf("     scrap 0: 0x%x, scrap 1: 0x%x, scrap 2: 0x%x, scrap 3: 0x%x\n",
              scrap[0],scrap[1],scrap[2],scrap[3]);
-	}
+    }
+    if( (epicsheaderinfo.nchan%2) == 1){ // we read out 32bit words, it will get misaligned if we read out
+                                      // odd 16 bit words in the epics event
+      printf("odd prevention\n");
+            fread((char*) scrap, 2, 1, in); 
+    }
 
 /*    for (int i = 0; i < epicsheaderinfo.nchan; i++){
       fread((char*) &epicschan, sizeof(epicschan), 1, in);
@@ -353,19 +364,26 @@ void Read_A2_class::decode_adc(unsigned int dataword){
 
   adc   = (dataword      ) & 0xffff;
   value = (dataword >> 16) & 0xffff;
+
+
+  //wrong:
+  //value   = (dataword      ) & 0xffff;
+  //adc = (dataword >> 16) & 0xffff;
+  
   what=decode_id(adc);
 
   if(verboselvl>=20){
-    printf("Data: id: %i, value %i\n", adc, value);
+    printf("Data: id: %5i, value %5i \t", adc, value);
     if(what==isCB_Tdc){ // TDC
-      printf("   TDC hit: %i (ch %i) V %i\n", adc, CB_TDC_to_n(adc), value);
+      printf("   TDC hit: %4i (ch %3i) V %5i", adc, CB_TDC_to_n(adc), value);
     }
     if(what==isCB_Adc){ // ADC
-      printf("   ADC hit: %i (ch %i) V %i\n",  adc, CB_ADC_to_n(adc), value);
+      printf("   ADC hit: %4i (ch %3i) V %4i",  adc, CB_ADC_to_n(adc), value);
     }
     if(what==isTagger_Tdc){ // TDC
-      printf("   Tagger TDC hit: %i (ch %i) V %i\n", adc, TAGGER_TDC_to_n(adc), value);
+      printf("   Tagger TDC hit: %4i (ch %3i) V %5i", adc, TAGGER_TDC_to_n(adc), value);
     }
+    printf("\n");
   }     
 }
 
