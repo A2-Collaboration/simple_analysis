@@ -44,6 +44,10 @@ enum { EMk2SizeTime = 32, EMk2SizeComment = 256, EMk2SizeFName = 128,
 enum { isNONE, isTagger_Tdc, isTagger_Scaler, isPID, isMWPC,
        isCB_Adc, isCB_Tdc, isTAPSVeto, isTAPS};
 
+enum  EepicsType{              EepicsBYTE,    EepicsSTRING,     EepicsSHORT,    EepicsLONG,    EepicsFLOAT,    EepicsDOUBLE, EepicsNULL};
+const char *epicsTypeName[] = {"epicsBYTE",   "epicsSTRING",    "epicsSHORT",   "epicsLONG",   "epicsFLOAT",   "epicsDOUBLE",      NULL};
+enum  EepicsTypeSize{           ESizeBYTE = 1, ESizeSTRING = 40, ESizeSHORT = 2, ESizeLONG = 8, ESizeFLOAT = 4, ESizeDOUBLE = 8};
+
 
 struct AcquMk2Info_t {	       	      // 1st part of header buffer
   UInt_t fMk1;                        // Mark as Mk1 or Mk2 data
@@ -321,10 +325,10 @@ void Read_A2_class::decode_scaler(void){
 }
 
 void Read_A2_class::decode_epics(void){
-    printf("\nEPICS block detected\n");
+    printf("  EPICS block detected\n");
     fread((char*) &epicsheaderinfo, sizeof(epicsheaderinfo), 1, in);
 
-    printf("Channels: %u\n", epicsheaderinfo.nchan);
+    printf("  Channels: %u\n", epicsheaderinfo.nchan);
 
     char pvname[64];
     uint16_t scrap[20];
@@ -332,22 +336,55 @@ void Read_A2_class::decode_epics(void){
     uint16_t nelem;
     uint16_t type;
 
+    char   varB;
+	short  varS;
+	long   varL;
+	float  varF;
+	double varD;
+	
     for (int i = 0; i < epicsheaderinfo.nchan; i++){
       fread((char*) pvname, 1, 32, in);
       fread((char*) &bytes, 2, 1, in);
       fread((char*) &nelem, 2, 1, in);
       fread((char*) &type, 2, 1, in);
-      fread((char*) scrap, 2, 4, in);  // why? Needed with CBTaggTAPS_23873.dat, otherwise the following epics pvnames will get wrong information
-	   
-      printf("%i, PV: %s, bytes %u, elements=%u, type=%u\n",
-             i, pvname, bytes, nelem, type);
-      printf("     scrap 0: 0x%x, scrap 1: 0x%x, scrap 2: 0x%x, scrap 3: 0x%x\n",
-             scrap[0],scrap[1],scrap[2],scrap[3]);
+	  
+      printf("  %i, PV: %s, bytes %u, elements=%u, type=%u, var: ",
+              i, pvname, bytes, nelem, type);
+
+      switch(type){                                //work out type and print formatted as appropriate
+        case EepicsBYTE:
+          fread(&varB, sizeof(varB), 1, in);
+		  printf("%i\n", (int) varB);
+        break;
+        case EepicsSHORT:
+          fread(&varS, sizeof(varS), 1, in);
+		  printf("%i\n", (int) varS);
+        break;
+        case EepicsLONG:
+          fread(&varL, sizeof(varL), 1, in);
+		  printf("%ld\n", varL);
+        break;
+        case EepicsFLOAT:
+          fread(&varF, sizeof(varF), 1, in);
+		  printf("%f\n", varF);
+        break;
+        case EepicsDOUBLE:
+          fread(&varD, sizeof(varD), 1, in);
+		  printf("%f\n", varD);
+        break;
+        default:
+          printf("\nWARNING: Unknown epics data type: %u for EPICS channel %s\n", type, pvname);
+        break;
+      }
+	  
+    //  printf("     scrap 0: 0x%x, scrap 1: 0x%x, scrap 2: 0x%x, scrap 3: 0x%x\n",
+      //       scrap[0],scrap[1],scrap[2],scrap[3]);
+      //      printf("As text: %s\n", (char *) scrap);
     }
     if( (epicsheaderinfo.nchan%2) == 1){ // we read out 32bit words, it will get misaligned if we read out
                                       // odd 16 bit words in the epics event
-      printf("odd prevention\n");
-            fread((char*) scrap, 2, 1, in); 
+      printf("  odd prevention\n");
+      fread((char*) scrap, 2, 1, in); 
     }
 
 /*    for (int i = 0; i < epicsheaderinfo.nchan; i++){
@@ -389,7 +426,7 @@ void Read_A2_class::decode_adc(unsigned int dataword){
 
 int Read_A2_class::decode_id(int id, int is_scaler_event){
   if(is_scaler_event==1){  // scaler event -> tagger scaler, not CB tdc
-     //Scaler blocks are segmented: 2000-2059, 2064-2095, 2288-2383, 2576-2267, 2864-2923, 2928-2955      
+     // Scaler blocks are segmented: 2000-2059, 2064-2095, 2288-2383, 2576-2267, 2864-2923, 2928-2955      
     if(id>=2000 && id<=2059) return isTagger_Scaler;
     if(id>=2064 && id<=2095) return isTagger_Scaler;
     if(id>=2288 && id<=2383) return isTagger_Scaler;
