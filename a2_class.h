@@ -41,8 +41,9 @@ enum { EMk2SizeTime = 32, EMk2SizeComment = 256, EMk2SizeFName = 128,
        EMk2SizeDesc = 256 };
 
 // id definitions
-enum { isNONE, isTagger_Tdc, isTagger_Scaler, isPID, isMWPC,
-       isCB_Adc, isCB_Tdc, isTAPSVeto, isTAPS};
+enum { isNONE, isESip, isTagger_Tdc, isTagger_Scaler, 
+       isPID_Adc, isPID_Tdc, isMWPC,
+       isCB_Adc, isCB_Tdc, isTAPSVeto, isTAPS, isTAPSPWO};
 
 enum  EepicsType{              EepicsBYTE,    EepicsSTRING,     EepicsSHORT,    EepicsLONG,    EepicsFLOAT,    EepicsDOUBLE, EepicsNULL};
 const char *epicsTypeName[] = {"epicsBYTE",   "epicsSTRING",    "epicsSHORT",   "epicsLONG",   "epicsFLOAT",   "epicsDOUBLE",      NULL};
@@ -425,11 +426,35 @@ void Read_A2_class::decode_adc(unsigned int dataword){
     if(what==isTagger_Tdc){ // TDC
       printf("   Tagger TDC hit: %4i (ch %3i) V %5i", adc, TAGGER_TDC_to_n(adc), value);
     }
+    if(what==isMWPC){ // MWPC 
+      printf("   MWPC hit: %4i V %5i", adc, value);
+    }
+    if(what==isPID_Adc){ // PID ADC
+      printf("   PID ADC hit: %4i V %5i", adc, value);
+    }
+    if(what==isPID_Tdc){ // PID TDC
+      printf("   PID TDC hit: %4i V %5i", adc, value);
+    }
+    if(what==isTAPSPWO){ // TAPS PWO
+      printf("   TAPS PWO hit: %4i V %5i", adc, value);
+    }
+    if(what==isTAPSVeto){ // TAPS Veto
+      printf("   TAPS Veto hit: %4i V %5i", adc, value);
+    }
+    if(what==isTAPS){ // TAPS
+      printf("   TAPS hit: %4i V %5i", adc, value);
+    }
+    if(what==isESip){ // Event Synchronisation info provider module and event ID index
+      printf("   ESip hit: %4i V %5i", adc, value);
+    }
     printf("\n");
   }     
 }
 
 int Read_A2_class::decode_id(int id, int is_scaler_event){
+//Event Synchronisation info provider module and event ID index
+  if(id==400) return isESip;
+  
   if(is_scaler_event==1){  // scaler event -> tagger scaler, not CB tdc
      // Scaler blocks are segmented: 2000-2059, 2064-2095, 2288-2383, 2576-2267, 2864-2923, 2928-2955      
     if(id>=2000 && id<=2059) return isTagger_Scaler;
@@ -442,6 +467,15 @@ int Read_A2_class::decode_id(int id, int is_scaler_event){
   if(id>=2032 && id<=2751) return isCB_Tdc; // CB TDC
   if(id>=3000 && id<=3719) return isCB_Adc; // CB ADC
   if(id>=800 && id<=1181) return isTagger_Tdc; // Tagger TDC
+
+  if(id>=4007 && id<=4559) return isMWPC; // MWPC
+  if(id>=101 && id<=126)  return isPID_Adc; // PID ADC
+  if(id>=2008 && id<=2031) return isPID_Tdc; // PID TDC
+
+
+  if(id>=29000 && id<=29294) return isTAPSPWO; // TAPS PWO ADC and TDC, sort out later
+  if(id>=26000 && id<=29317) return isTAPSVeto; // TAPS Veto ADC and TDC, sort out later
+  if(id>=20000 && id<=25500) return isTAPS; // TAPS ADC and TDC, sort out later
 
   return isNONE;  // none of these above
 }
