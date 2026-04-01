@@ -307,21 +307,24 @@ int Read_A2_class::read_one_dataword(unsigned int &dataword){
 
 void Read_A2_class::decode_scaler(void){
   unsigned int index, value;
+  int ists=0;
   printf("Scaler block detected\n");
   
   for(int i=0; i<2000; i++){
     read_one_dataword(value);
     read_one_dataword(index);
-    printf("Scaler %u  value %u\n", index, value);
-    if(decode_id(index)==isTagger_Scaler){ // Scaler
-      printf("   Tagger Scaler hit: %i (ch %i) V %i\n", index, TAGGER_SCALER_to_n(index), value);
-    }
-     else printf("   Unknown id: %i, value: %i", index, value);
     if(index==0xfefefefe){
-      printf("******\n");
+      printf("****** End of tagger block \n");
       break;
     }
+    printf("Scaler %4u  value %10u", index, value);
+    if(decode_id(index,1)==isTagger_Scaler){ // Scaler
+      printf("   Tagger Scaler hit: %4i (ch %3i) V %10u\n", index, TAGGER_SCALER_to_n(index), value);
+      ists=1;
+    }
+     else printf("   Unknown id: %4i, value: %10u\n", index, value);
   }
+  if(ists==1) exit(0);
   verboselvl=100;
 }
 
@@ -402,50 +405,50 @@ void Read_A2_class::decode_epics(void){
 }
 
 void Read_A2_class::decode_adc(unsigned int dataword){
-  unsigned short adc, value;
+  unsigned short id, value;
   int what;
 
-  adc   = (dataword      ) & 0xffff;
-  value = (dataword >> 16) & 0xffff;
+  id   = (dataword      ) & 0xffff; // use the lower 16 bit of the data word
+  value = (dataword >> 16) & 0xffff; // shift 16 bits to the right and use the remaining 16 bit
 
 
   //wrong:
   //value   = (dataword      ) & 0xffff;
   //adc = (dataword >> 16) & 0xffff;
   
-  what=decode_id(adc);
+  what=decode_id(id);
 
   if(verboselvl>=20){
-    printf("Data: id: %5i, value %5i \t", adc, value);
+    printf("Data: id: %5i, value %5i \t", id, value);
     if(what==isCB_Tdc){ // TDC
-      printf("   TDC hit: %4i (ch %3i) V %5i", adc, CB_TDC_to_n(adc), value);
+      printf("   CB TDC hit: %4i (ch %3i) V %5i", id, CB_TDC_to_n(id), value);
     }
-    if(what==isCB_Adc){ // ADC
-      printf("   ADC hit: %4i (ch %3i) V %4i",  adc, CB_ADC_to_n(adc), value);
+    if(what==isCB_Adc){ // id
+      printf("   CB ADC hit: %4i (ch %3i) V %4i",  id, CB_ADC_to_n(id), value);
     }
     if(what==isTagger_Tdc){ // TDC
-      printf("   Tagger TDC hit: %4i (ch %3i) V %5i", adc, TAGGER_TDC_to_n(adc), value);
+      printf("   Tagger TDC hit: %4i (ch %3i) V %5i", id, TAGGER_TDC_to_n(id), value);
     }
     if(what==isMWPC){ // MWPC 
-      printf("   MWPC hit: %4i V %5i", adc, value);
+      printf("   MWPC hit: %4i V %5i", id, value);
     }
     if(what==isPID_Adc){ // PID ADC
-      printf("   PID ADC hit: %4i V %5i", adc, value);
+      printf("   PID ADC hit: %4i V %5i", id, value);
     }
     if(what==isPID_Tdc){ // PID TDC
-      printf("   PID TDC hit: %4i V %5i", adc, value);
+      printf("   PID TDC hit: %4i V %5i", id, value);
     }
     if(what==isTAPSPWO){ // TAPS PWO
-      printf("   TAPS PWO hit: %4i V %5i", adc, value);
+      printf("   TAPS PWO hit: %4i V %5i", id, value);
     }
     if(what==isTAPSVeto){ // TAPS Veto
-      printf("   TAPS Veto hit: %4i V %5i", adc, value);
+      printf("   TAPS Veto hit: %4i V %5i", id, value);
     }
     if(what==isTAPS){ // TAPS
-      printf("   TAPS hit: %4i V %5i", adc, value);
+      printf("   TAPS hit: %4i V %5i", id, value);
     }
     if(what==isESip){ // Event Synchronisation info provider module and event ID index
-      printf("   ESip hit: %4i V %5i", adc, value);
+      printf("   ESip hit: %4i V %5i", id, value);
     }
     printf("\n");
   }     

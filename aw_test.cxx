@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
     // it will stop after counter datawords if enable_counter==1
 
     noe++; 
-    if(noe>=1) m=0;  // exit after x events analysed
+    // if(noe>=1) m=0;  // exit after x events analysed
     if(noe%10000==0) printf("Analysing event: %i\n",noe);
 
     if(m==1){  // not eof for these files
