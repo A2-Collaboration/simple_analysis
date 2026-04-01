@@ -337,6 +337,7 @@ void Read_A2_class::decode_epics(void){
     uint16_t type;
 
     char   varB;
+    char   varStr[ESizeSTRING];
 	short  varS;
 	long   varL;
 	float  varF;
@@ -353,23 +354,27 @@ void Read_A2_class::decode_epics(void){
 
       switch(type){                                //work out type and print formatted as appropriate
         case EepicsBYTE:
-          fread(&varB, sizeof(varB), 1, in);
+          fread(&varB, ESizeBYTE, 1, in);
 		  printf("%i\n", (int) varB);
         break;
+        case EepicsSTRING:
+          fread(varStr, ESizeSTRING, 1, in);
+		  printf("%s\n", varStr);
+        break;
         case EepicsSHORT:
-          fread(&varS, sizeof(varS), 1, in);
+          fread(&varS, ESizeSHORT, 1, in);
 		  printf("%i\n", (int) varS);
         break;
         case EepicsLONG:
-          fread(&varL, sizeof(varL), 1, in);
+          fread(&varL, ESizeLONG, 1, in);
 		  printf("%ld\n", varL);
         break;
         case EepicsFLOAT:
-          fread(&varF, sizeof(varF), 1, in);
+          fread(&varF, ESizeFLOAT, 1, in);
 		  printf("%f\n", varF);
         break;
         case EepicsDOUBLE:
-          fread(&varD, sizeof(varD), 1, in);
+          fread(&varD, ESizeDOUBLE, 1, in);
 		  printf("%f\n", varD);
         break;
         default:
