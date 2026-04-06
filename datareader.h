@@ -1,124 +1,125 @@
 /*********************************************************************
  *  datareader.h
  *
- *  One-header implementation of the DataReader class.
+ *  Header-only implementation of the DataReader class.
  *
- *  * Reads lines that start with the literal ôElement:ö.
- *  * For each such line it
- *      û assigns a sequential id (0,1,2,à)
- *      û extracts two integer parameters **plus** the numeric ôM-suffixö
- *        that may follow each parameter:
- *          ò first_param   = numeric prefix of the *first* token after
- *                           ôElement:ö   (e.g. ô3015M1ö ? 3015)
- *          ò first_suffix  = numeric suffix after the æMÆ in that token
- *                           (e.g. ô3015M1ö ? 1,  ô2000ö ? û1)
- *          ò second_param  = numeric prefix of the *sixth* token after
- *                           ôElement:ö   (e.g. ô2032M0ö ? 2032)
- *          ò second_suffix = numeric suffix after the æMÆ in that token
- *                           (e.g. ô2032M0ö ? 0,  ô0.00ö ? û1)
- *  * Stores each line in a dynamically-grown C-array of Record*.
- *  * Maintains two uthash hash tables:
- *          first_hash  : first_param  ? Record*
- *          second_hash : second_param ? Record*
+ *  * Reads lines that start with the literal "Element:".
+ *  * For each such line it extracts up to three integer parameters plus
+ *    the numeric "M-suffix" that may follow each parameter:
+ *        ADC    = numeric prefix at token position 'adc_pos'
+ *        ADC-suffix    = integer after 'M' in that token (-1 if none)
+ *        TDC    = numeric prefix at token position 'tdc_pos'
+ *        TDC-suffix    = integer after 'M' in that token (-1 if none)
+ *        Scaler = numeric prefix at token position 'scaler_pos'
+ *        Scaler-suffix = integer after 'M' in that token (-1 if none)
+ *
+ *    If a position argument is 0, that parameter is ignored – it is not
+ *    read, not stored, and no hash entry is created for it.
+ *
+ *  * Stores each line in a dynamically-grown C array of Record.
+ *  * Maintains up to three uthash tables (only the requested ones):
+ *        - adc_hash    : ADC    ? Record
+ *        - tdc_hash    : TDC    ? Record
+ *        - scaler_hash : Scaler ? Record
+ *
  *  * Public API
- *        û bool   readFile()          // parse the supplied file
- *        û Record* findFirst(int)    // lookup by first_param
- *        û Record* findSecond(int)   // lookup by second_param
- *        û int    getNumberOfElements() const   // number of stored records
- *        û int    getMaxFirstSuffix() const
- *        û int    getMaxSecondSuffix() const
+ *        - bool  readFile()
+ *        - Record* findADC(int adc)      // valid only if adc_pos > 0
+ *        - Record* findTDC(int tdc)      // valid only if tdc_pos > 0
+ *        - Record* findScaler(int scl)   // valid only if scaler_pos > 0
+ *        - int   getNumberOfElements() const
+ *        - int   getMaxADCSuffix() const     // –1 if ADC not requested
+ *        - int   getMaxTDCSuffix() const     // –1 if TDC not requested
+ *        - int   getMaxScalerSuffix() const  // –1 if Scaler not requested
  *
- *  The implementation deliberately uses only C-style I/O (printf/sscanf/fgets)
- *  and manual memory handling, as required by the original specification.
- *
- *  Compile example (GNU extensions required by uthash; no ûstd=c++11):
- *
- *      g++ -Wall -Wextra -O2 -o prog main.cpp
+ *  All I/O is performed with printf/sscanf/fgets; no iostreams,
+ *  no C++11 features, no std::string, no std::vector.
  *********************************************************************/
 
 #ifndef DATAREADER_H
 #define DATAREADER_H
 
-/* -----------------------------------------------------------------
- *  Required C headers (still usable from C++)
- * ----------------------------------------------------------------- */
-#include <cstdio>    // printf, fprintf, fgets, sscanf
+#include <cstdio>    // printf, fprintf, fgets, sscanf, fopen, fclose
 #include <cstdlib>   // malloc, free, strtol, EXIT_FAILURE, EXIT_SUCCESS
 #include <cstring>   // strcmp, strncmp, strchr
 #include <cctype>    // isspace
-#include <limits>    // std::numeric_limits û used for overflow clamping
+#include <limits>    // std::numeric_limits – overflow clamping
+#include "uthash.h"  // single-header hash table
 
 /* -----------------------------------------------------------------
- *  uthash û single-header hash-table library.
- *  Place uthash.h in the same folder as this file.
- * ----------------------------------------------------------------- */
-#include "uthash.h"
-
-/* -----------------------------------------------------------------
- *  Record û one line of the input file.
+ * Record – one line of the input file
  * ----------------------------------------------------------------- */
 typedef struct {
-    int id;                // Sequential identifier (0,1,2,à)
-    int first_param;       // Numeric prefix of tokená1
-    int second_param;      // Numeric prefix of tokená6
-    int first_suffix;      // Numeric part after æMÆ in tokená1 (-1 = none)
-    int second_suffix;     // Numeric part after æMÆ in tokená6 (-1 = none)
+    int id;                // Sequential identifier (0,1,2,…)
+    int adc;               // ADC value (-1 if not read)
+    int tdc;               // TDC value (-1 if not read)
+    int scaler;            // Scaler value (-1 if not read)
+    int adc_suffix;        // Integer after 'M' in ADC token   (-1 if none)
+    int tdc_suffix;        // Integer after 'M' in TDC token   (-1 if none)
+    int scaler_suffix;     // Integer after 'M' in Scaler token(-1 if none)
 } Record;
 
 /* -----------------------------------------------------------------
- *  FirstParamEntry û hash entry: first_param ? Record*.
+ * Hash entry structs
  * ----------------------------------------------------------------- */
 typedef struct {
-    int first_param;      // key
+    int   adc;            // key
     Record *rec;          // value (pointer into the Record array)
-    UT_hash_handle hh;    // required uthash bookkeeping field
-} FirstParamEntry;
+    UT_hash_handle hh;    // uthash bookkeeping field
+} ADCEntry;
 
-/* -----------------------------------------------------------------
- *  SecondParamEntry û hash entry: second_param ? Record*.
- * ----------------------------------------------------------------- */
 typedef struct {
-    int second_param;     // key
-    Record *rec;          // value
-    UT_hash_handle hh;    // required uthash bookkeeping field
-} SecondParamEntry;
+    int   tdc;
+    Record *rec;
+    UT_hash_handle hh;
+} TDCEntry;
+
+typedef struct {
+    int   scaler;
+    Record *rec;
+    UT_hash_handle hh;
+} ScalerEntry;
 
 /* =================================================================
- *  DataReader û public class (implementation lives entirely in this
- *               header; the interactive loop can be in a separate .cpp)
+ * DataReader – header-only class
  * ================================================================= */
 class DataReader {
 private:
     /* ------------------- internal state -------------------------- */
-    FirstParamEntry  *first_hash;        // hash: first_param  ? Record*
-    SecondParamEntry *second_hash;       // hash: second_param ? Record*
-    Record          **records;           // C-style dynamic array of Record*
-    int               rec_cnt;           // number of records stored
-    int               rec_cap;           // current capacity of the array
-    const char       *filename;          // file supplied by the user
-    int               max_first_suffix;  // maximum suffix seen for first_param
-    int               max_second_suffix; // maximum suffix seen for second_param
+    ADCEntry    * _adc_hash;
+    TDCEntry    * _tdc_hash;
+    ScalerEntry * _scaler_hash;
+
+    Record      **records;           // dynamic array of Record*
+    int          rec_cnt;            // number of records stored
+    int          rec_cap;            // current capacity of the array
+    const char  *filename;           // file supplied by the user
+
+    int max_adc_suffix;
+    int max_tdc_suffix;
+    int max_scaler_suffix;
+    int adc_number;
+    int tdc_number;
+    int scaler_number;
+    
+    /* ------ configurable token positions (1-based, 0 = ignore) ----- */
+    int adc_pos;       // token number for ADC    (0 = do not read)
+    int tdc_pos;       // token number for TDC    (0 = do not read)
+    int scaler_pos;    // token number for Scaler (0 = do not read)
 
     /* ------------------- helper: integer from token ------------- */
-    /** Returns the leading integer of a token (e.g. ô3015M1ö ? 3015).
-     *  Returns 0 if no leading digits are present.
-     */
     static int parseIntPrefix(const char *tok) {
-        if (!tok) return 0;
-        char *endptr = NULL;
+        if (!tok) return -1;
+        char *endptr = nullptr;
         long v = strtol(tok, &endptr, 10);
-        if (endptr == tok) return 0;                     // no digits at all
+        if (endptr == tok) return -1;               // no digits at all ? “not found”
         if (v > std::numeric_limits<int>::max())
             return std::numeric_limits<int>::max();
         if (v < std::numeric_limits<int>::min())
             return std::numeric_limits<int>::min();
-        return (int)v;
+        return static_cast<int>(v);
     }
 
-    /** Returns the integer that follows an æMÆ (or æmÆ) in a token.
-     *  Example: ô3015M1ö ? 1,  ô2032M0ö ? 0,  ô2.000ö ? û1.
-     *  Returns û1 if no æMÆ is present.
-     */
     static int parseSuffix(const char *tok) {
         if (!tok) return -1;
         const char *m = strchr(tok, 'M');
@@ -128,13 +129,10 @@ private:
     }
 
     /* ------------------- ensure the Record array can grow ------- */
-    /** Grows the `records` pointer array when needed.
-     *  Capacity is doubled each time (starting from 128).
-     */
     void ensureCapacity() {
-        if (rec_cnt < rec_cap) return;           // already enough room
+        if (rec_cnt < rec_cap) return;               // already enough room
         int new_cap = rec_cap ? rec_cap * 2 : 128;
-        Record **new_arr = (Record **)malloc(new_cap * sizeof(Record *));
+        Record **new_arr = (Record**)malloc(new_cap * sizeof(Record*));
         if (!new_arr) {
             fprintf(stderr,
                     "Error: malloc failed while resizing records (requested %d entries)\n",
@@ -142,91 +140,116 @@ private:
             exit(EXIT_FAILURE);
         }
         for (int i = 0; i < rec_cnt; ++i) new_arr[i] = records[i];
-        if (records) free(records);
+        free(records);
         records = new_arr;
         rec_cap = new_cap;
     }
 
-    /* ------------------- insert a Record into both hashes -------- */
-    /** Returns true on success, false on allocation failure.
-     *  In case the second allocation fails the first hash entry is
-     *  removed and freed to avoid a leak.
-     */
+    /* ------------------- insert a Record into the required hashes */
     bool insertIntoHashes(Record *r) {
-        /* ---- first_hash ---- */
-        FirstParamEntry *f = (FirstParamEntry *)malloc(sizeof(*f));
-        if (!f) {
-            perror("malloc FirstParamEntry");
-            return false;
+        if (adc_pos > 0) {
+            ADCEntry *e = (ADCEntry*)malloc(sizeof(*e));
+            if (!e) { perror("malloc ADCEntry"); return false; }
+            e->adc = r->adc;
+            e->rec = r;
+            HASH_ADD_INT(_adc_hash, adc, e);
         }
-        f->first_param = r->first_param;
-        f->rec = r;
-        HASH_ADD_INT(first_hash, first_param, f);   // key = first_param
-
-        /* ---- second_hash ---- */
-        SecondParamEntry *s = (SecondParamEntry *)malloc(sizeof(*s));
-        if (!s) {
-            perror("malloc SecondParamEntry");
-            HASH_DEL(first_hash, f);
-            free(f);
-            return false;
+        if (tdc_pos > 0) {
+            TDCEntry *e = (TDCEntry*)malloc(sizeof(*e));
+            if (!e) {
+                perror("malloc TDCEntry");
+                if (adc_pos > 0) {
+                    ADCEntry *ae;
+                    HASH_FIND_INT(_adc_hash, &r->adc, ae);
+                    if (ae) { HASH_DEL(_adc_hash, ae); free(ae); }
+                }
+                return false;
+            }
+            e->tdc = r->tdc;
+            e->rec = r;
+            HASH_ADD_INT(_tdc_hash, tdc, e);
         }
-        s->second_param = r->second_param;
-        s->rec = r;
-        HASH_ADD_INT(second_hash, second_param, s); // key = second_param
-
+        if (scaler_pos > 0) {
+            ScalerEntry *e = (ScalerEntry*)malloc(sizeof(*e));
+            if (!e) {
+                perror("malloc ScalerEntry");
+                if (adc_pos > 0) {
+                    ADCEntry *ae;
+                    HASH_FIND_INT(_adc_hash, &r->adc, ae);
+                    if (ae) { HASH_DEL(_adc_hash, ae); free(ae); }
+                }
+                if (tdc_pos > 0) {
+                    TDCEntry *te;
+                    HASH_FIND_INT(_tdc_hash, &r->tdc, te);
+                    if (te) { HASH_DEL(_tdc_hash, te); free(te); }
+                }
+                return false;
+            }
+            e->scaler = r->scaler;
+            e->rec = r;
+            HASH_ADD_INT(_scaler_hash, scaler, e);
+        }
         return true;
     }
 
-    /* ------------------- free both hash tables ----------------- */
-    /** Walks each hash table, removes every entry, and frees its memory. */
+    /* ------------------- free all hash tables -------------------- */
     void freeHashes() {
-        FirstParamEntry *f, *tmp_f;
-        HASH_ITER(hh, first_hash, f, tmp_f) {
-            HASH_DEL(first_hash, f);
-            free(f);
+        ADCEntry *ae, *tmp_ae;
+        HASH_ITER(hh, _adc_hash, ae, tmp_ae) {
+            HASH_DEL(_adc_hash, ae);
+            free(ae);
         }
-        first_hash = NULL;
+        _adc_hash = nullptr;
 
-        SecondParamEntry *s, *tmp_s;
-        HASH_ITER(hh, second_hash, s, tmp_s) {
-            HASH_DEL(second_hash, s);
-            free(s);
+        TDCEntry *te, *tmp_te;
+        HASH_ITER(hh, _tdc_hash, te, tmp_te) {
+            HASH_DEL(_tdc_hash, te);
+            free(te);
         }
-        second_hash = NULL;
+        _tdc_hash = nullptr;
+
+        ScalerEntry *se, *tmp_se;
+        HASH_ITER(hh, _scaler_hash, se, tmp_se) {
+            HASH_DEL(_scaler_hash, se);
+            free(se);
+        }
+        _scaler_hash = nullptr;
     }
 
 public:
     /* ------------------- ctor / dtor --------------------------- */
-    explicit DataReader(const char *fname)
-        : first_hash(NULL), second_hash(NULL),
-          records(NULL), rec_cnt(0), rec_cap(0), filename(fname),
-          max_first_suffix(-1), max_second_suffix(-1) {}
+    explicit DataReader(const char *fname,
+                        int adc_pos_=0,   int adc_number_=0,
+                        int tdc_pos_=0,   int tdc_number_=0,
+                        int scaler_pos_=0,int scaler_number_=0)
+        : _adc_hash(nullptr), _tdc_hash(nullptr), _scaler_hash(nullptr),
+          records(nullptr), rec_cnt(0), rec_cap(0), filename(fname),
+          max_adc_suffix(-1), max_tdc_suffix(-1), max_scaler_suffix(-1),
+          adc_pos(adc_pos_), tdc_pos(tdc_pos_), scaler_pos(scaler_pos_)
+    {
+      adc_number=adc_number_;
+      tdc_number=tdc_number_;
+      scaler_number=scaler_number_;
+        // Note: adc_number_, tdc_number_, scaler_number_ are currently unused
+        // but are passed through for future extensibility or documentation.
+    }
 
     ~DataReader() {
-        freeHashes();                         // hash entries first
-        for (int i = 0; i < rec_cnt; ++i)     // then each Record struct
-            free(records[i]);
-        if (records) free(records);           // finally the pointer array
+        freeHashes();
+        for (int i = 0; i < rec_cnt; ++i) free(records[i]);
+        free(records);
     }
 
     /* ------------------- read the input file ------------------ */
-    /** Parses the file given at construction time.
-     *  Returns true on success, false on any fatal error (file-open,
-     *  malloc failure, à).  Malformed lines are skipped with a warning.
-     */
     bool readFile() {
-        /* ---- Reset previous state ------------------------------------ */
+        /* Reset everything – a second call to readFile() is allowed */
         freeHashes();
         for (int i = 0; i < rec_cnt; ++i) free(records[i]);
-        if (records) free(records);
-        records = NULL;
-        rec_cnt = 0;
-        rec_cap = 0;
-        max_first_suffix  = -1;
-        max_second_suffix = -1;
+        free(records);
+        records = nullptr;
+        rec_cnt = rec_cap = 0;
+        max_adc_suffix = max_tdc_suffix = max_scaler_suffix = -1;
 
-        /* ---- Open the file ------------------------------------------- */
         FILE *fp = fopen(filename, "r");
         if (!fp) {
             fprintf(stderr, "Error: cannot open \"%s\"\n", filename);
@@ -234,61 +257,83 @@ public:
         }
 
         char line[1024];
-        int lineId = 0;          // sequential id for each accepted line
+        int lineId = 0;
         bool success = true;
 
-        /* ---- Process the file line-by-line --------------------------- */
         while (fgets(line, sizeof(line), fp)) {
-            /* Keep only lines that start with "Element:" */
             if (strncmp(line, "Element:", 8) != 0) continue;
 
-            /* Tokenise the first ten whitespace-separated fields */
-            char t1[64], t2[64], t3[64], t4[64], t5[64],
-                 t6[64], t7[64], t8[64], t9[64], t10[64] = {0};
-
+            /* -------------------------------------------------
+             * Split the line into up to 20 whitespace-separated tokens.
+             * ------------------------------------------------- */
+            char tokens[20][64] = {{0}};
             int n = sscanf(line,
-                "Element: %63s %63s %63s %63s %63s %63s %63s %63s %63s %63s",
-                t1, t2, t3, t4, t5, t6, t7, t8, t9, t10);
+                "Element: %63s %63s %63s %63s %63s %63s %63s %63s %63s %63s "
+                "%63s %63s %63s %63s %63s %63s %63s %63s %63s %63s",
+                tokens[0], tokens[1], tokens[2], tokens[3], tokens[4],
+                tokens[5], tokens[6], tokens[7], tokens[8], tokens[9],
+                tokens[10], tokens[11], tokens[12], tokens[13], tokens[14],
+                tokens[15], tokens[16], tokens[17], tokens[18], tokens[19]);
 
-            if (n < 2) {
+            int max_needed = 0;
+            if (adc_pos    > max_needed) max_needed = adc_pos;
+            if (tdc_pos    > max_needed) max_needed = tdc_pos;
+            if (scaler_pos > max_needed) max_needed = scaler_pos;
+
+            if (max_needed > 0 && n < max_needed) {
                 fprintf(stderr,
-                        "Warning: line %d has too few fields (expected at least 2) û skipping\n",
-                        lineId + 1);
+                        "Warning: line %d has only %d tokens (need %d) – skipping\n",
+                        lineId + 1, n, max_needed);
                 continue;
             }
 
-            /* Extract numeric parameters and their ôM-suffixesö */
-            int first_param   = parseIntPrefix(t1);
-            int first_suffix  = parseSuffix(t1);
-            int second_param  = parseIntPrefix(t6);
-            int second_suffix = parseSuffix(t6);
+            /* -------------------------------------------------
+             * Extract the individual values.
+             * ------------------------------------------------- */
+            int adc_val   = -1, adc_suf   = -1;
+            int tdc_val   = -1, tdc_suf   = -1;
+            int scaler_val= -1, scaler_suf= -1;
 
-            /* Allocate a new Record */
-            Record *r = (Record *)malloc(sizeof(*r));
+            if (adc_pos > 0) {
+                adc_val = parseIntPrefix(tokens[adc_pos - 1]);
+                adc_suf = parseSuffix(tokens[adc_pos - 1]);
+            }
+            if (tdc_pos > 0) {
+                tdc_val = parseIntPrefix(tokens[tdc_pos - 1]);
+                tdc_suf = parseSuffix(tokens[tdc_pos - 1]);
+            }
+            if (scaler_pos > 0) {
+                scaler_val = parseIntPrefix(tokens[scaler_pos - 1]);
+                scaler_suf = parseSuffix(tokens[scaler_pos - 1]);
+            }
+
+            /* -------------------------------------------------
+             * Allocate a new Record and fill it.
+             * ------------------------------------------------- */
+            Record *r = (Record*)malloc(sizeof(*r));
             if (!r) {
                 perror("malloc Record");
                 success = false;
                 break;
             }
             r->id            = lineId++;
-            r->first_param   = first_param;
-            r->second_param  = second_param;
-            r->first_suffix  = first_suffix;
-            r->second_suffix = second_suffix;
+            r->adc           = adc_val;
+            r->tdc           = tdc_val;
+            r->scaler        = scaler_val;
+            r->adc_suffix    = adc_suf;
+            r->tdc_suffix    = tdc_suf;
+            r->scaler_suffix = scaler_suf;
 
-            /* Store it in the dynamic array (grow if necessary) */
             ensureCapacity();
             records[rec_cnt++] = r;
 
-            /* Update max-suffix trackers */
-            if (first_suffix > max_first_suffix)   max_first_suffix   = first_suffix;
-            if (second_suffix > max_second_suffix) max_second_suffix  = second_suffix;
+            if (adc_pos > 0 && adc_suf > max_adc_suffix)    max_adc_suffix    = adc_suf;
+            if (tdc_pos > 0 && tdc_suf > max_tdc_suffix)    max_tdc_suffix    = tdc_suf;
+            if (scaler_pos > 0 && scaler_suf > max_scaler_suffix) max_scaler_suffix = scaler_suf;
 
-            /* Insert the Record into both hash tables */
-            if (!insertIntoHashes(r)) {
-                /* Allocation inside insertIntoHashes failed û clean up */
+            if (!insertIntoHashes(r)) {            // <-- correct name
                 free(r);
-                rec_cnt--;               // remove the partially-added entry
+                rec_cnt--;
                 success = false;
                 break;
             }
@@ -296,58 +341,54 @@ public:
 
         fclose(fp);
 
-        /* ---- Final reporting ------------------------------------------ */
-        if (success) {
-            printf("Loaded %d records from \"%s\"\n", rec_cnt, filename);
-        } else {
+        if (!success) {
             for (int i = 0; i < rec_cnt; ++i) free(records[i]);
             rec_cnt = 0;
             freeHashes();
         }
-
         return success;
     }
 
-    /* ------------------- lookup by first_param ---------------- */
-    /** Returns a pointer to the Record whose first_param equals `fp`,
-     *  or NULL if no such record exists.
-     */
-    Record *findFirst(int fp) {
-        FirstParamEntry *out = NULL;
-        ({ HASH_FIND_INT(first_hash, &fp, out); });
-        return out ? out->rec : NULL;
+    /* ------------------- look-ups ------------------------------ */
+    Record *findADC(int adc) const {
+        ADCEntry *e = nullptr;
+        HASH_FIND_INT(_adc_hash, &adc, e);
+        return e ? e->rec : nullptr;
     }
 
-    /* ------------------- lookup by second_param --------------- */
-    /** Returns a pointer to the Record whose second_param equals `sp`,
-     *  or NULL if no such record exists.
-     */
-    Record *findSecond(int sp) {
-        SecondParamEntry *out = NULL;
-        ({ HASH_FIND_INT(second_hash, &sp, out); });
-        return out ? out->rec : NULL;
+    Record *findTDC(int tdc) const {
+        TDCEntry *e = nullptr;
+        HASH_FIND_INT(_tdc_hash, &tdc, e);
+        return e ? e->rec : nullptr;
     }
 
-    /* ------------------- public helpers ------------------------ */
-    /** Number of records that have been successfully loaded. */
+    Record *findScaler(int scaler) const {
+        ScalerEntry *e = nullptr;
+        HASH_FIND_INT(_scaler_hash, &scaler, e);
+        return e ? e->rec : nullptr;
+    }
+
+    /* ------------------- public helpers ----------------------- */
     int getNumberOfElements() const { return rec_cnt; }
 
-    /** Maximum M-suffix seen for the first parameter (-1 = none). */
-    int getMaxFirstSuffix() const { return max_first_suffix; }
+    int getMaxADCSuffix() const { return max_adc_suffix; }
+    int getMaxTDCSuffix() const { return max_tdc_suffix; }
+    int getMaxScalerSuffix() const { return max_scaler_suffix; }
 
-    /** Maximum M-suffix seen for the second parameter (-1 = none). */
-    int getMaxSecondSuffix() const { return max_second_suffix; }
+    int getADCInitW() const { return adc_number; }
+    int getTDCInitW() const { return tdc_number; }
+    int getScalerInitW() const { return scaler_number; }
 
-    /** Return both suffixes together (convenient for callers). */
     struct MaxSuffixInfo {
-        int maxFirst;
-        int maxSecond;
+        int maxADC;
+        int maxTDC;
+        int maxScaler;
     };
+
     MaxSuffixInfo getMaxSuffixInfo() const {
-        MaxSuffixInfo info = { max_first_suffix, max_second_suffix };
+        MaxSuffixInfo info = { max_adc_suffix, max_tdc_suffix, max_scaler_suffix };
         return info;
     }
 };
 
 #endif /* DATAREADER_H */
-

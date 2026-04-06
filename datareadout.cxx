@@ -1,22 +1,25 @@
 /*********************************************************************
-*  main.cpp
-*
-*  Minimal driver that uses the header‑only DataReader class.
-*
-*  Features:
-*      - Constructs DataReader with the file name supplied on the CLI
-*      - Calls readFile() to build the internal structures
-*      - Runs a simple prompt:
-*            p <value>   – lookup by first_param
-*            q <value>   – lookup by second_param
-*            m           – show maximum M-suffixes for both parameters
-*            f           – show maximum M-suffix for first_param
-*            s           – show maximum M-suffix for second_param
-*            x           – quit
-*
-*  All I/O is done with printf/sscanf/fgets (no iostreams).
-*********************************************************************/
-#include "datareader.h"          // <-- our header from above
+ *  main.cpp
+ *
+ *  Minimal driver that uses the header-only DataReader class.
+ *
+ *  Features:
+ *      - Constructs DataReader with the file name supplied on the CLI
+ *      - Calls readFile() to build the internal structures
+ *      - Runs a simple prompt:
+ *            a <value>   - lookup by ADC
+ *            t <value>   - lookup by TDC
+ *            s <value>   - lookup by Scaler
+ *            m           - show maximum M-suffixes for ADC, TDC and Scaler
+ *            f           - show maximum M-suffix for ADC
+ *            d           - show maximum M-suffix for TDC
+ *            c           - show maximum M-suffix for Scaler
+ *            q           - quit
+ *
+ *  All I/O is done with printf/sscanf/fgets (no iostreams).
+ *********************************************************************/
+
+#include "datareader.h"      // Header-only implementation (ASCII only)
 
 int main(int argc, char *argv[]) {
     if (argc != 2) {
@@ -27,10 +30,20 @@ int main(int argc, char *argv[]) {
     /* -------------------------------------------------------------
      *  1. Build the DataReader object
      * ------------------------------------------------------------- */
-    DataReader dr(argv[1]);
+    /* Default token positions (the same as the original implementation):
+     *   ADC    - token 1
+     *   TDC    - token 6
+     *   Scaler - token 11
+     * The *_number arguments are currently unused but required by the
+     * constructor signature, so we pass 0 for each.
+     */
+    DataReader dr(argv[1],   // filename
+                  1, 0,      // ADC position, ADC number (unused)
+                  6, 0,      // TDC position, TDC number (unused)
+                  0, 0);    // Scaler position, Scaler number (unused)
 
     /* -------------------------------------------------------------
-     *  2. Parse the file – abort if we cannot read it
+     *  2. Parse the file - abort if we cannot read it
      * ------------------------------------------------------------- */
     if (!dr.readFile())
         return EXIT_FAILURE;
@@ -42,71 +55,88 @@ int main(int argc, char *argv[]) {
     printf("Successfully loaded %d elements.\n", n);
 
     /* -------------------------------------------------------------
-     *  4. Interactive query loop (pure C‑style I/O)
+     *  4. Interactive query loop (pure C-style I/O)
      * ------------------------------------------------------------- */
     char query[256];
     while (true) {
-        printf("\nEnter query (p <1st_param>, q <2nd_param>, ");
-        printf("m/f/s for max M-suffixes, x to quit): ");
+        printf("\nEnter query (a <ADC>, t <TDC>, s <Scaler>, ");
+        printf("m/f/d/c for max M-suffixes, q to quit): ");
         if (!fgets(query, sizeof query, stdin))
-            break;                 // EOF
+            break;                 /* EOF */
 
         /* Skip leading whitespace */
         char *p = query;
         while (*p && isspace((unsigned char)*p)) ++p;
 
         /* Quit? */
-        if (*p == 'x' || *p == 'X')
+        if (*p == 'q' || *p == 'Q')
             break;
 
-        /* Command character */
         char cmd = *p;
 
-        if (cmd == 'p' || cmd == 'P') {
+        if (cmd == 'a' || cmd == 'A') {
             int value;
             if (sscanf(p + 1, "%d", &value) != 1) {
-                printf("  Invalid number – try again.\n");
+                printf("  Invalid number - try again.\n");
                 continue;
             }
-            Record *r = dr.findFirst(value);
+            Record *r = dr.findADC(value);
             if (r)
-                printf("  Found: id=%d (1st_param=%d, 2nd_param=%d)\n",
-                       r->id, r->first_param, r->second_param);
+                printf("  Found: id=%d (ADC=%d, TDC=%d, Scaler=%d)\n",
+                       r->id, r->adc, r->tdc, r->scaler);
             else
-                printf("  1st_param=%d not found.\n", value);
+                printf("  ADC=%d not found.\n", value);
         }
-        else if (cmd == 'q' || cmd == 'Q') {
+        else if (cmd == 't' || cmd == 'T') {
             int value;
             if (sscanf(p + 1, "%d", &value) != 1) {
-                printf("  Invalid number – try again.\n");
+                printf("  Invalid number - try again.\n");
                 continue;
             }
-            Record *r = dr.findSecond(value);
+            Record *r = dr.findTDC(value);
             if (r)
-                printf("  Found: id=%d (1st_param=%d, 2nd_param=%d)\n",
-                       r->id, r->first_param, r->second_param);
+                printf("  Found: id=%d (ADC=%d, TDC=%d, Scaler=%d)\n",
+                       r->id, r->adc, r->tdc, r->scaler);
             else
-                printf("  2nd_param=%d not found.\n", value);
-        }
-        else if (cmd == 'm' || cmd == 'M') {
-            int maxFirst  = dr.getMaxFirstSuffix();
-            int maxSecond = dr.getMaxSecondSuffix();
-            printf("  Max M-suffixes: first_param = %d, second_param = %d\n",
-                   maxFirst, maxSecond);
-        }
-        else if (cmd == 'f' || cmd == 'F') {
-            int maxFirst = dr.getMaxFirstSuffix();
-            printf("  Max M-suffix for first_param: %d\n", maxFirst);
+                printf("  TDC=%d not found.\n", value);
         }
         else if (cmd == 's' || cmd == 'S') {
-            int maxSecond = dr.getMaxSecondSuffix();
-            printf("  Max M-suffix for second_param: %d\n", maxSecond);
+            int value;
+            if (sscanf(p + 1, "%d", &value) != 1) {
+                printf("  Invalid number - try again.\n");
+                continue;
+            }
+            Record *r = dr.findScaler(value);
+            if (r)
+                printf("  Found: id=%d (ADC=%d, TDC=%d, Scaler=%d)\n",
+                       r->id, r->adc, r->tdc, r->scaler);
+            else
+                printf("  Scaler=%d not found.\n", value);
+        }
+        else if (cmd == 'm' || cmd == 'M') {
+            int maxADC    = dr.getMaxADCSuffix();
+            int maxTDC    = dr.getMaxTDCSuffix();
+            int maxScaler = dr.getMaxScalerSuffix();
+            printf("  Max M-suffixes: ADC=%d, TDC=%d, Scaler=%d\n",
+                   maxADC, maxTDC, maxScaler);
+        }
+        else if (cmd == 'f' || cmd == 'F') {
+            int maxADC = dr.getMaxADCSuffix();
+            printf("  Max M-suffix for ADC: %d\n", maxADC);
+        }
+        else if (cmd == 'd' || cmd == 'D') {
+            int maxTDC = dr.getMaxTDCSuffix();
+            printf("  Max M-suffix for TDC: %d\n", maxTDC);
+        }
+        else if (cmd == 'c' || cmd == 'C') {
+            int maxScaler = dr.getMaxScalerSuffix();
+            printf("  Max M-suffix for Scaler: %d\n", maxScaler);
         }
         else {
-            printf("  Unknown command – use 'p', 'q', 'm', 'f', 's', or 'x'.\n");
+            printf("  Unknown command - use 'a', 't', 's', 'm', 'f', 'd', 'c', or 'x'.\n");
         }
     }
 
-    printf("\nAll resources freed – exiting\n");
+    printf("\nAll resources freed - exiting\n");
     return EXIT_SUCCESS;
 }
