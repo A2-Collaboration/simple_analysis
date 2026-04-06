@@ -1,7 +1,7 @@
 /*********************************************************************
- * datareader.h
+ * paramreader.h
  *
- * Header-only implementation of the DataReader class.
+ * Header-only implementation of the ParamReader class.
  *
  *  • Reads lines that start with the literal "Element:".
  *  • Extracts up to three integer parameters + optional M-suffixes.
@@ -22,8 +22,8 @@
  *  no C++11 features, no std::string, no std::vector.
  *********************************************************************/
 
-#ifndef DATAREADER_H
-#define DATAREADER_H
+#ifndef PARAMREADER_H
+#define PARAMREADER_H
 
 #include <cstdio>   // FILE, fopen, fclose, fgets, printf, fprintf, perror
 #include <cstdlib>  // malloc, free, strtol, EXIT_FAILURE, EXIT_SUCCESS
@@ -67,9 +67,9 @@ typedef struct {
 } ScalerEntry;
 
 /* =================================================================
- * DataReader – header-only class
+ * ParamReader – header-only class
  * ================================================================= */
-class DataReader {
+class ParamReader {
 private:
     /* ------------------- internal state -------------------------- */
     ADCEntry    *_adc_hash;
@@ -207,7 +207,7 @@ private:
 
 public:
     /* ------------------- ctor / dtor --------------------------- */
-    explicit DataReader(const char *fname,
+    explicit ParamReader(const char *fname,
                         int adc_pos_=0,   int adc_number_=0,
                         int tdc_pos_=0,   int tdc_number_=0,
                         int scaler_pos_=0,int scaler_number_=0)
@@ -219,7 +219,7 @@ public:
           _emptyFile( (!fname) || (fname[0] == '\0') )
     {}
 
-    ~DataReader() {
+    ~ParamReader() {
         freeHashes();
         for (int i = 0; i < rec_cnt; ++i) free(records[i]);
         free(records);
@@ -405,4 +405,4 @@ public:
     }
 };
 
-#endif /* DATAREADER_H */
+#endif /* PARAMREADER_H */
