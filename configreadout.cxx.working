@@ -1,0 +1,210 @@
+#include "paramreader.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+enum { qADC, qTDC, qScaler };
+
+const char *DetectorName[]={"NONE","TAGGER","MWPC_W","MWPC_S","PID","CB","VETO","PBWO4","PBWO4_S","BAF2_S","BAF2_L","SCALER","","",""};
+enum {D_NONE, D_TAGGER, D_MWPC_W, D_MWPC_S, D_PID, D_CB, D_VETO, D_PBWO4, D_PBWO4_S, D_BAF2_S, D_BAF2_L, D_SCALER};
+
+ParamReader pr[15];
+
+static void trim(char *s){
+   char *p = s;
+   while (*p && isspace((unsigned char)*p)) ++p;
+   if (p != s) memmove(s, p, strlen(p) + 1);
+
+   size_t len = strlen(s);
+   if (len == 0) return;
+
+   char *end = s + len - 1;
+   while (end >= s && isspace((unsigned char)*end)) {
+       *end = '\0';
+       --end;
+   }
+}
+
+char *my_strupr(char *s){
+  char *p = s;
+  while (*p){
+    *p = toupper((unsigned char)*p);
+    p++;
+  }
+  return s;
+}
+
+int config_readout(char * cfg_file){
+  char name[64];
+  int pos_adc, n_adc, pos_tdc, n_tdc, pos_scaler, n_scaler;
+  char filename[256];
+  char line[1024];
+  int in_use[15]={0};
+
+  FILE *fp = fopen(cfg_file, "r");
+  if (!fp){
+    printf("Error: cannot open config file \"%s\"\n", cfg_file);
+    return 0;
+  }
+
+  while (fgets(line, sizeof(line), fp)){
+    trim(line);
+    if(line[0]=='\0' || line[0]=='#') continue;
+
+    int fields = sscanf(line,"%63s %d %d %d %d %d %d %255s",
+        name,&pos_adc,&n_adc,&pos_tdc,&n_tdc,&pos_scaler,&n_scaler,filename);
+
+    if(fields!=8){
+      printf("Warning: malformed line – skipping: %s\n", line);
+      continue;
+    }
+
+    my_strupr(name);
+
+    int found = 0;
+
+    for(int n=0; n<15; n++){
+      if(strcmp(DetectorName[n], name)==0){
+
+        printf("Found %s as detector %d\n", DetectorName[n], n);
+
+        pr[n].init(filename,pos_adc,n_adc,pos_tdc,n_tdc,pos_scaler,n_scaler);
+
+        if(!pr[n].readFile()){
+          printf("Can't read file: %s\n", filename);
+          return EXIT_FAILURE;
+        }
+
+        in_use[n]=1;
+        found=1;
+        break;
+      }
+    }
+
+    if(!found){
+      printf("Warning: unknown detector '%s'\n", name);
+    }
+  }
+
+  fclose(fp);
+
+  for(int n=0; n<15; n++){
+    if(strlen(DetectorName[n])>0 && !in_use[n]){
+      printf("Detector %s not in use\n", DetectorName[n]);
+      pr[n].init("",0,0,0,0,0,0);
+    }
+  }
+
+  return 1;
+}
+
+int main(int argc, char *argv[])
+{
+    if (argc != 2) {
+        printf("Usage: %s <config-file>\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+
+    /* -------------------------------------------------------------
+     * 1. Read configuration (this loads all ParamReader objects)
+     * ------------------------------------------------------------- */
+    if (!config_readout(argv[1])) {
+        printf("Configuration failed\n");
+        return EXIT_FAILURE;
+    }
+
+    /* -------------------------------------------------------------
+     * 2. Print summary
+     * ------------------------------------------------------------- */
+    for(int m=0; m<15; m++){
+        printf("%d %s loaded %d elements\n",
+            m, DetectorName[m], pr[m].getNumberOfElements());
+    }
+
+    /* Example test (kept from your original code) */
+    int value = 3015;
+    int id = pr[D_CB].findADC(value);
+    printf("id=%d (ADC=%d)\n", id, value);
+
+    /* -------------------------------------------------------------
+     * 3. Interactive query loop
+     * ------------------------------------------------------------- */
+    char query[256];
+
+    while (1) {
+        printf("\nEnter query (a <ADC>, t <TDC>, s <Scaler>, "
+               "m/f/d/c for max M-suffixes, q to quit): ");
+
+        if (!fgets(query, sizeof query, stdin))
+            break;
+
+        char *p = query;
+        while (*p && isspace((unsigned char)*p))
+            ++p;
+
+        if (*p == 'q' || *p == 'Q')
+            break;
+
+        char cmd = *p;
+
+        if (cmd == 'a' || cmd == 'A') {
+            int value;
+            if (sscanf(p + 1, "%d", &value) != 1) {
+                printf("  Invalid number\n");
+                continue;
+            }
+            int id = pr[D_CB].findADC(value);
+            if (id >= 0) printf("  Found: id=%d (ADC=%d)\n", id, value);
+            else if (id == -1) printf("  ADC=%d not found\n", value);
+            else printf("  No data loaded\n");
+        }
+        else if (cmd == 't' || cmd == 'T') {
+            int value;
+            if (sscanf(p + 1, "%d", &value) != 1) {
+                printf("  Invalid number\n");
+                continue;
+            }
+            int id = pr[D_CB].findTDC(value);
+            if (id >= 0) printf("  Found: id=%d (TDC=%d)\n", id, value);
+            else if (id == -1) printf("  TDC=%d not found\n", value);
+            else printf("  No data loaded\n");
+        }
+        else if (cmd == 's' || cmd == 'S') {
+            int value;
+            if (sscanf(p + 1, "%d", &value) != 1) {
+                printf("  Invalid number\n");
+                continue;
+            }
+            int id = pr[D_CB].findScaler(value);
+            if (id >= 0) printf("  Found: id=%d (Scaler=%d)\n", id, value);
+            else if (id == -1) printf("  Scaler=%d not found\n", value);
+            else printf("  No data loaded\n");
+        }
+        else if (cmd == 'm' || cmd == 'M') {
+            printf("  Max M suffixes: ADC=%d, TDC=%d, Scaler=%d\n",
+                   pr[D_CB].getMaxADCSuffix(),
+                   pr[D_CB].getMaxTDCSuffix(),
+                   pr[D_CB].getMaxScalerSuffix());
+        }
+        else if (cmd == 'f' || cmd == 'F') {
+            printf("  Max ADC M-suffix: %d\n",
+                   pr[D_CB].getMaxADCSuffix());
+        }
+        else if (cmd == 'd' || cmd == 'D') {
+            printf("  Max TDC M-suffix: %d\n",
+                   pr[D_CB].getMaxTDCSuffix());
+        }
+        else if (cmd == 'c' || cmd == 'C') {
+            printf("  Max Scaler M-suffix: %d\n",
+                   pr[D_CB].getMaxScalerSuffix());
+        }
+        else {
+            printf("  Unknown command\n");
+        }
+    }
+
+    printf("\nAll resources freed – exiting\n");
+    return EXIT_SUCCESS;
+}
+
