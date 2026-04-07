@@ -41,9 +41,17 @@ enum { EMk2SizeTime = 32, EMk2SizeComment = 256, EMk2SizeFName = 128,
        EMk2SizeDesc = 256 };
 
 // id definitions
-enum { isNONE, isESip, isTagger_Tdc, isTagger_Scaler, 
-       isPID_Adc, isPID_Tdc, isMWPC,
-       isCB_Adc, isCB_Tdc, isTAPSVeto, isTAPS, isTAPSPWO};
+enum { isNONE=0,
+       isTagger_Tdc=1, isTagger_Scaler=2,
+       isMWPC_W_Tdc=3, isMWPC_S_Adc=4,
+       isPID_Adc=5, isPID_Tdc=6,
+       isCB_Adc=7, isCB_Tdc=8,
+       isTAPSVeto_Adc=9, isTAPSVeto_Tdc=10,
+       isTAPS_S_Adc=11, isTAPS_S_Tdc=12,
+       isTAPS_L_Adc=13, isTAPS_L_Tdc=14,
+       isTAPSPWO_Adc=15, isTAPSPWO_Tdc=16,
+       isScaler=17, isESip=18};
+
 
 enum  EepicsType{              EepicsBYTE,    EepicsSTRING,     EepicsSHORT,    EepicsLONG,    EepicsFLOAT,    EepicsDOUBLE, EepicsNULL};
 const char *epicsTypeName[] = {"epicsBYTE",   "epicsSTRING",    "epicsSHORT",   "epicsLONG",   "epicsFLOAT",   "epicsDOUBLE",      NULL};
@@ -115,7 +123,8 @@ int getch(void);
 class Read_A2_class{
   protected:
     char filename[100];
-    FILE * in;
+    char configfilename[100];
+    FILE * in, * conf_in;
     int no_of_int_in_file;
     int data[64];
     unsigned int events=0; // event counter
@@ -131,7 +140,7 @@ class Read_A2_class{
     ~Read_A2_class(){
       if(in!=NULL) fclose(in);
     }
-    int init(char * file);
+    int init(char * file, char * configfile);
     int read_one_event(void);
     double get_value(int channel);
 
@@ -147,10 +156,11 @@ class Read_A2_class{
     int  decode_id(int id, int is_scaler_event=0);
 };
 
-int Read_A2_class::init(char * file){
+int Read_A2_class::init(char * file, char * configfile){
   int rv;
   strncpy(filename, file, 99);
 
+   
   in = fopen(filename, "rb");	
   if(in==NULL){ 
     printf("%s doesn't exist!!!\n", filename);

@@ -36,7 +36,7 @@
  * Record – one line of the input file
  * ----------------------------------------------------------------- */
 typedef struct {
-    int id;            /* sequential identifier (0,1,2,…)               */
+    int id;            /* sequential identifier (0,1,2,...)             */
     int adc;           /* ADC value   (-1 if not requested)             */
     int tdc;           /* TDC value   (-1 if not requested)             */
     int scaler;        /* Scaler value(-1 if not requested)             */
@@ -207,6 +207,7 @@ private:
 
 public:
     /* ------------------- ctor / dtor --------------------------- */
+    ParamReader() {}  // required!
     explicit ParamReader(const char *fname,
                         int adc_pos_=0,   int adc_number_=0,
                         int tdc_pos_=0,   int tdc_number_=0,
@@ -218,7 +219,6 @@ public:
           adc_pos(adc_pos_), tdc_pos(tdc_pos_), scaler_pos(scaler_pos_),
           _emptyFile( (!fname) || (fname[0] == '\0') )
     {}
-
     ~ParamReader() {
         freeHashes();
         for (int i = 0; i < rec_cnt; ++i) free(records[i]);
@@ -256,7 +256,7 @@ public:
 
         _emptyFile = false;            /* we have a real file to read */
 
-        const int MAX_TOKENS    = 20;
+        const int MAX_TOKENS    = 25;
         const int MAX_TOKEN_LEN = 64;
         char line[1024];
         int elementLine = 0;          /* counts only processed Element: lines */
