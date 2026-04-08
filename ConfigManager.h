@@ -1,7 +1,7 @@
 #ifndef CONFIGMANAGER_H
 #define CONFIGMANAGER_H
 
-#include "paramreader.h"
+#include "ParamReader.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,13 +13,12 @@ enum { qADC, qTDC, qScaler };
 enum {
     D_NONE, D_TAGGER, D_MWPC_W, D_MWPC_S, D_PID,
     D_CB, D_VETO, D_PBWO4, D_PBWO4_S,
-    D_BAF2_S, D_BAF2_L, D_SCALER
+    D_BAF2_S, D_BAF2_L, D_SCALER, N_DETECTORS
 };
 
 class ConfigManager {
 public:
-    static const int N_DETECTORS = 15;
-
+ 
     ConfigManager() {
         for(int i = 0; i < N_DETECTORS; i++)
             in_use[i] = 0;
@@ -44,43 +43,33 @@ public:
             int fields = sscanf(line,"%63s %d %d %d %d %d %d %255s",
                 name,&pos_adc,&n_adc,&pos_tdc,&n_tdc,
                 &pos_scaler,&n_scaler,filename);
-
             if(fields!=8){
                 printf("Warning: malformed line – skipping: %s\n", line);
                 continue;
             }
-
             my_strupr(name);
-
             int det = findDetector(name);
-
             if(det >= 0){
                 printf("Found %s as detector %d\n", DetectorName[det], det);
-
                 pr[det].init(filename,pos_adc,n_adc,pos_tdc,n_tdc,pos_scaler,n_scaler);
-
                 if(!pr[det].readFile()){
                     printf("Can't read file: %s\n", filename);
                     fclose(fp);
                     return 0;
                 }
-
                 in_use[det] = 1;
             }
             else{
                 printf("Warning: unknown detector '%s'\n", name);
             }
         }
-
         fclose(fp);
-
         for(int n=0; n<N_DETECTORS; n++){
             if(strlen(DetectorName[n])>0 && !in_use[n]){
                 printf("Detector %s not in use\n", DetectorName[n]);
                 pr[n].init("",0,0,0,0,0,0);
             }
         }
-
         return 1;
     }
 
@@ -114,7 +103,7 @@ private:
 
     static inline const char *DetectorName[N_DETECTORS] = {
         "NONE","TAGGER","MWPC_W","MWPC_S","PID","CB","VETO",
-        "PBWO4","PBWO4_S","BAF2_S","BAF2_L","SCALER","","",""
+        "PBWO4","PBWO4_S","BAF2_S","BAF2_L","SCALER"
     };
 
     void trim(char *s){

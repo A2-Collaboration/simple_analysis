@@ -12,7 +12,7 @@ pdrexler@uni-mainz.de
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "a2_class.h"
+#include "A2_ReadoutClass.h"
 
 #include "TMath.h"
 #include "TFile.h"

@@ -6,7 +6,7 @@
 #include <cstring>
 #include <cctype>
 #include <limits>
-#include "uthash.h"
+#include "UtHash.h"
 
 /* ---------------- Record ---------------- */
 typedef struct {
