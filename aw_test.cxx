@@ -4,14 +4,14 @@ pdrexler@uni-mainz.de
 
 **************************************/
 
-// there is a counter in a2_class.h: int Read_A2_class::read_one_event(void) around line 236
-// it will stop after "counter" #s if "enable_counter"==1
 // no root output atm
 
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
+
 #include "A2_ReadoutClass.h"
 
 #include "TMath.h"
@@ -24,8 +24,6 @@ pdrexler@uni-mainz.de
 #include "TRandom.h"
 #include "TTree.h"
 
-void convert(void);
-void extract(void);
 void calibrate(void);
 double randit(int ini=0);
 
@@ -37,25 +35,42 @@ Read_A2_class detector;
 int main(int argc, char *argv[])
 {
   char inputfile[200];
-  //  char outputfile[200];
+  char configfile[200];
+  char outputfile[200];
   unsigned int no_of_events=0, do_no_of_events=0;
-    
+  int verboselvl=0;
+ // verboselvl: 0: Status, critical  10: +info 20: +debug
+  time_t start_t, end_t; 
+  double diff_t;
+   
   if(argc<=1){ 
-    printf("No datafile set!!!\n");
-    printf("\nusage: %s datfile.dat rootfile.root [-n no_of_events]\n",
+    printf("\nusage: %s -i datfile.dat -c configfile -o  rootfile.root [-n no_of_events]\n",
           argv[0]);
     return(-1);
   }
-  else strcpy(inputfile, argv[1]);
-  /*  if(argc<=2){ 
-    printf("No outputfile!!!\n");
-    printf("\nusage: %s datfile.dat rootfile.root [-n no_of_events]]\n",
-          argv[0]);
-    return(-1);
-    } else strcpy(outputfile, argv[2]);
-  */
   
   for(int n=0; n<argc; n++){
+    if(strstr(argv[n],"-i")!=NULL){  // set inputfile
+      n++;  
+      if(n<argc){
+        strcpy(inputfile, argv[n]);
+        printf("Input file: %s\n", inputfile);
+      }
+    }
+    if(strstr(argv[n],"-c")!=NULL){  // set configfile
+      n++;  
+      if(n<argc){
+        strcpy(configfile, argv[n]);
+        printf("Config file: %s\n", configfile);
+      }
+    }
+    if(strstr(argv[n],"-o")!=NULL){  // set inputfile
+      n++;  
+      if(n<argc){
+        strcpy(outputfile, argv[n]);
+        printf("Output file: %s\n", outputfile);
+      }
+    }
     if(strstr(argv[n],"-n")!=NULL){  // set stop after # of counts
       n++;  
       printf("Max count enabled!\n");
@@ -70,9 +85,17 @@ int main(int argc, char *argv[])
     }
   } 
 
-  randit(1);
-  detector.init(inputfile);
+  randit(1);  // initialisation of random number, +-0.5, use: double nr=randit(); 
 
+
+  time(&start_t);
+  // the hard working functions are invoked here:
+  // loads correlation id -> channel  for all detectors in initfile
+  // prepares the readout one (including allocating memory for eventbuffer)
+  detector.init(inputfile, configfile, verboselvl);
+
+  // ROOT init:
+ 
   /*
   TFile hfile(outputfile,"RECREATE","NTEC analysis");
   hfile.SetCompressionLevel(1);
@@ -102,85 +125,53 @@ int main(int argc, char *argv[])
 
   hfile.cd ("sort");
 */
-  /******* end initialisation histograms **************/
-  
+  // ******* end initialisation histograms **************
+  // ******* end root init
+ 
   int m=1; 
   unsigned int noe=0;
-  do{
+  do{ // begining of the readout loop 
     m=detector.read_one_event();  // reads one full event into internal buffer, !=0 if there is any data
-
-    // there is a counter in a2_class.h: int Read_A2_class::read_one_event(void) around line 236
-    // it will stop after counter datawords if enable_counter==1
-
-    noe++; 
+    noe++;
+	if(m!=1) printf("\nEnd of file reached.\n");
     // if(noe>=1) m=0;  // exit after x events analysed
     if(noe%10000==0) printf("Analysing event: %i\n",noe);
 
     if(m==1){  // not eof for these files
-      convert();   // converts the internal data to data sort into arrays
       calibrate(); // example for calibration of energy to MeV
       
 /******* begin filling histograms **************/
 // valid variables:
-//   ELG[0-15]
-//   EHG[0-15]
+
 /*
       for(int i=0; i<16;i++){   // sort in energy
         if(ELG[i]>0) pENERGY_LG[i]->Fill(ELG[i]);
         if(EHG[i]>0) pENERGY_HG[i]->Fill(EHG[i]);
       }
 */
+
 /******* end filling histograms ****************/
     } 
-    if(do_no_of_events==1)
-        if(noe>=no_of_events) m=0;
-  }while(m==1);
+    if(do_no_of_events==1){
+      if(noe>=no_of_events){
+		 m=0;  // end after noe_o_events
+		 printf("Number of events reached!\n");
+	  }
+	}	 
+  }while(m==1);  // end of readout loop
+   
   /*
   printf("Writing root file...\n");	
   hfile.Write();
   hfile.Close();
   printf("Root file written!\n");
   */
+  time(&end_t);
+  diff_t = difftime(end_t, start_t);
+  printf("Execution time = %.0f s (%.1f min or %.1f h)\n", diff_t, diff_t/60.,diff_t/60./60.);
   printf("\nEnd of the neverending story!\n");
 }
 
 void calibrate(void){ // example for calibration of energy to MeV
-
-}
-
-
-void convert(void){  // converts the internal data to data sort into arrays
-  /*
-    functions used in this example, imbeded in the ReadSystem_class class:
-
-    unsigned int get_value(int board, int channel, int event);                     // used for all boards but FADCs
-    int get_multihitno(int board, int channel); // V1190/V1290 TDCs: get the number of entries for that channel
-    int get_ref_channel(int board);             // V1190/V1290 TDCs: get the reference time channel
-    unsigned int get_fall_or_width(int board, int channel, int event, int iwidth); // for V1190/V1290 TDCs
-    unsigned int get_trace(int board, int channel, unsigned int *array);           // for FADCs
-   */
-
- 
-  // ***** Energy: V965 HG/LG
-
-  for(int channel=0; channel<16; channel++ ){  
-    //    ELG[channel]=detector.get_value(energy_module, channel*2, 0);
-    // EHG[channel]=detector.get_value(energy_module, (channel*2)+1, 0);
-  }
-  // ***** END Energy: V965 HG/LG
-
-
-}  // convert
-
-
-void extract_test(void){ // for FADC: extract time/energy information from trace
-  // no fadc, nothing to do here
-  // for an example, look at ./old_aw/aw_proto60.cxx
-} //   extract_test(void);
-
-
-double randit(int ini){  // for smearing out energy channels, +-0,5ch
-  if(ini==1) srand(time(NULL));
-  
-  return (((rand()%100) -50.) /100.);
+//  double smear=randit();  // randit smear for channels, +-0.5ch
 }
