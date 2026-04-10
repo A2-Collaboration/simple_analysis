@@ -7,8 +7,12 @@
 #include <iostream>
 #include <arpa/inet.h>
 
-#include <unistd.h>
+#include <vector>
+#include <algorithm>
+#include <cstdio>
+#include <stdexcept>
 
+#include <unistd.h>
 
 
 // for getch()
@@ -43,6 +47,78 @@ using namespace std;
 // Array sizes
 enum { EMk2SizeTime = 32, EMk2SizeComment = 256, EMk2SizeFName = 128,
        EMk2SizeDesc = 256 };
+
+enum ArrayName {
+        TAGGER_TDC, TAGGER_SCALER, MWPC_W_TDC, MWPC_S_ADC,
+        PID_ADC, PID_TDC, CB_ADC, CB_TDC,
+        VETO_ADC, VETO_TDC, BAF2_S_ADC, BAF2_S_TDC, BAF2_L_ADC, BAF2_L_TDC,
+        PBWO4_ADC, PBWO4_TDC, PBWO4_S_ADC, PBWO4_S_TDC,
+        ARRAY_COUNT};
+static const char * SUBSYSTEM_NAMES[] = {"TAGGER_TDC", "TAGGER_SCALER", 
+        "MWPC_W_TDC", "MWPC_S_ADC", "PID_ADC", "PID_TDC", "CB_ADC", "CB_TDC",
+        "VETO_ADC", "VETO_TDC", "BAF2_S_ADC", "BAF2_S_TDC", "BAF2_L_ADC", "BAF2_L_TDC",
+        "PBWO4_ADC", "PBWO4_TDC", "PBWO4_S_ADC", "PBWO4_S_TDC"};
+        
+// ======================================================
+// Array2D: Channel-major storage (hits contiguous per channel)
+// ======================================================
+class Array2D {
+    std::vector<unsigned int> data;
+    size_t hits{}, channels{};
+    bool valid{false};
+
+    // Channel-major indexing: hits are contiguous for each channel
+    size_t index(size_t hidx, size_t ch) const {
+        return ch * hits + hidx;
+    }
+
+public:
+    Array2D() = default;
+    Array2D(size_t h, size_t c) { init(h, c); }
+
+    unsigned int get(size_t ch, size_t hidx) const {
+        if (!valid || ch >= channels || hidx >= hits) {
+            fprintf(stderr, "Warning: Accessing invalid element ch=%zu h=%zu\n", ch, hidx);
+            return 0;
+        }
+        return data[index(hidx, ch)];
+    }
+
+    void set(size_t ch, size_t hidx, unsigned int val) {
+        if (!valid || ch >= channels || hidx >= hits) {
+            fprintf(stderr, "Warning: Setting invalid element ch=%zu h=%zu\n", ch, hidx);
+            return;
+        }
+        data[index(hidx, ch)] = val;
+    }
+
+    unsigned int& operator()(size_t ch, size_t hidx) {
+        if (!valid || ch >= channels || hidx >= hits)
+            throw std::out_of_range("Array2D access");
+        return data[index(hidx, ch)];
+    }
+
+    const unsigned int& operator()(size_t ch, size_t hidx) const {
+        if (!valid || ch >= channels || hidx >= hits)
+            throw std::out_of_range("Array2D access");
+        return data[index(hidx, ch)];
+    }
+
+    size_t get_hits() const { return valid ? hits : 0; }
+    size_t get_channels() const { return valid ? channels : 0; }
+
+    void clear() {
+        std::fill(data.begin(), data.end(), 0u);  // zero all elements
+    }
+   void init(size_t c, size_t h) {
+        hits = h;
+        channels = c;
+        data.assign(h * c, 0u);  // allocate and zero
+        valid = true;
+    }
+
+    bool is_valid() const { return valid; }
+};
 
 /*
 // id definitions
@@ -148,7 +224,51 @@ class Read_A2_class{
     int read_one_event(void);
     double get_value(int channel);
 
+        // ---------------- Accessors ----------------
+    Array2D& tagger_tdc()      { return arrays[TAGGER_TDC]; }
+    Array2D& tagger_scaler()   { return arrays[TAGGER_SCALER]; }
+    Array2D& mwpc_w_tdc()      { return arrays[MWPC_W_TDC]; }
+    Array2D& mwpc_s_adc()      { return arrays[MWPC_S_ADC]; }
+    Array2D& pid_adc()         { return arrays[PID_ADC]; }
+    Array2D& pid_tdc()         { return arrays[PID_TDC]; }
+    Array2D& cb_adc()          { return arrays[CB_ADC]; }
+    Array2D& cb_tdc()          { return arrays[CB_TDC]; }
+    Array2D& veto_adc()        { return arrays[VETO_ADC]; }
+    Array2D& veto_tdc()        { return arrays[VETO_TDC]; }
+    Array2D& baf2_s_adc()      { return arrays[BAF2_S_ADC]; }
+    Array2D& baf2_s_tdc()      { return arrays[BAF2_S_TDC]; }
+    Array2D& baf2_l_adc()      { return arrays[BAF2_L_ADC]; }
+    Array2D& baf2_l_tdc()      { return arrays[BAF2_L_TDC]; }
+    Array2D& pbwo4_adc()       { return arrays[PBWO4_ADC]; }
+    Array2D& pbwo4_tdc()       { return arrays[PBWO4_TDC]; }
+    Array2D& pbwo4_s_adc()     { return arrays[PBWO4_S_ADC]; }
+    Array2D& pbwo4_s_tdc()     { return arrays[PBWO4_S_TDC]; }
+
+    const Array2D& tagger_tdc() const      { return arrays[TAGGER_TDC]; }
+    const Array2D& tagger_scaler() const   { return arrays[TAGGER_SCALER]; }
+    const Array2D& mwpc_w_tdc() const      { return arrays[MWPC_W_TDC]; }
+    const Array2D& mwpc_s_adc() const      { return arrays[MWPC_S_ADC]; }
+    const Array2D& pid_adc() const         { return arrays[PID_ADC]; }
+    const Array2D& pid_tdc() const         { return arrays[PID_TDC]; }
+    const Array2D& cb_adc() const          { return arrays[CB_ADC]; }
+    const Array2D& cb_tdc() const          { return arrays[CB_TDC]; }
+    const Array2D& veto_adc() const        { return arrays[VETO_ADC]; }
+    const Array2D& veto_tdc() const        { return arrays[VETO_TDC]; }
+    const Array2D& baf2_s_adc() const      { return arrays[BAF2_S_ADC]; }
+    const Array2D& baf2_s_tdc() const      { return arrays[BAF2_S_TDC]; }
+    const Array2D& baf2_l_adc() const      { return arrays[BAF2_L_ADC]; }
+    const Array2D& baf2_l_tdc() const      { return arrays[BAF2_L_TDC]; }
+    const Array2D& pbwo4_adc() const       { return arrays[PBWO4_ADC]; }
+    const Array2D& pbwo4_tdc() const       { return arrays[PBWO4_TDC]; }
+    const Array2D& pbwo4_s_adc() const     { return arrays[PBWO4_S_ADC]; }
+    const Array2D& pbwo4_s_tdc() const     { return arrays[PBWO4_S_TDC]; }
+
+    bool is_active(int name) const {
+        return arrays[name].is_valid();
+    }
+
   private:
+    Array2D arrays[ARRAY_COUNT]{};
     int read_one_dataword(unsigned int &dataword);
     void undo_read_one_dataword(void);
     int read_header(void);
@@ -170,6 +290,28 @@ int Read_A2_class::init(char * file, char * configfile, int verboselvl_){
     return EXIT_FAILURE;
   }
   if(verboselvl>=10) cfg.printSummary();
+  
+  // ******************* create data arrays due to the information from cfg:
+  // arrays[ detectorpart ].init(no_of_ch, maxno_of_hits);
+    arrays[TAGGER_TDC].init(    cfg.getnoCh(D_TAGGER),  cfg.getTDCMaxHits(D_TAGGER));
+    arrays[TAGGER_SCALER].init( cfg.getnoCh(D_TAGGER),  cfg.getSCALERMaxHits(D_TAGGER));
+    arrays[MWPC_W_TDC].init(    cfg.getnoCh(D_MWPC_W),  cfg.getTDCMaxHits(D_MWPC_W));
+    arrays[MWPC_S_ADC].init(    cfg.getnoCh(D_MWPC_S),  cfg.getADCMaxHits(D_MWPC_S));
+    arrays[PID_ADC].init(       cfg.getnoCh(D_PID),     cfg.getADCMaxHits(D_PID));
+    arrays[PID_TDC].init(       cfg.getnoCh(D_PID),     cfg.getTDCMaxHits(D_PID));
+    arrays[CB_ADC].init(        cfg.getnoCh(D_CB),      cfg.getADCMaxHits(D_CB));
+    arrays[CB_TDC].init(        cfg.getnoCh(D_CB),      cfg.getTDCMaxHits(D_CB));
+    arrays[VETO_ADC].init(      cfg.getnoCh(D_VETO),    cfg.getADCMaxHits(D_VETO));
+    arrays[VETO_TDC].init(      cfg.getnoCh(D_VETO),    cfg.getTDCMaxHits(D_VETO));
+    arrays[BAF2_S_ADC].init(    cfg.getnoCh(D_BAF2_S),  cfg.getADCMaxHits(D_BAF2_S));
+    arrays[BAF2_S_TDC].init(    cfg.getnoCh(D_BAF2_S),  cfg.getTDCMaxHits(D_BAF2_S));
+    arrays[BAF2_L_ADC].init(    cfg.getnoCh(D_BAF2_L),  cfg.getADCMaxHits(D_BAF2_L));
+    arrays[BAF2_L_TDC].init(    cfg.getnoCh(D_BAF2_L),  cfg.getTDCMaxHits(D_BAF2_L));
+    arrays[PBWO4_ADC].init(     cfg.getnoCh(D_PBWO4),   cfg.getADCMaxHits(D_PBWO4));
+    arrays[PBWO4_TDC].init(     cfg.getnoCh(D_PBWO4),   cfg.getTDCMaxHits(D_PBWO4));
+    arrays[PBWO4_S_ADC].init(   cfg.getnoCh(D_PBWO4_S), cfg.getADCMaxHits(D_PBWO4_S));
+    arrays[PBWO4_S_TDC].init(   cfg.getnoCh(D_PBWO4_S), cfg.getTDCMaxHits(D_PBWO4_S));
+
    
   in = fopen(filename, "rb");	
   if(in==NULL){ 
@@ -252,6 +394,11 @@ int Read_A2_class::read_one_event(void){
   int rv;
 
   if(verboselvl>=20) printf("\n************* Start reading one event:  *******************\n");
+
+  // Zero all arrays
+  for (size_t i = 0; i < ARRAY_COUNT; ++i) {
+    arrays[i].clear();
+  }
 
   read_event_header();             // read event header
 
@@ -432,6 +579,14 @@ void Read_A2_class::decode_adc(unsigned int dataword){
 
   // tagger scalers are in the scaler block, not here in the normal data
   
+ // TODO:
+/*
+        // Fill CB_ADC (channel-major access is now cache-friendly)
+        for (size_t ch = 0; ch < arrays[CB_ADC].get_channels(); ++ch)
+            for (size_t h = 0; h < arrays[CB_ADC].get_hits(); ++h)
+                arrays[CB_ADC].set(ch, h, static_cast<unsigned int>(ch  + h));
+  */
+  
   // test if the id is in the tagger tdc range (ch>=0), then save it.
   // same for all other detector components
   int ch=cfg.get(D_TAGGER).findTDC(id);
@@ -548,6 +703,7 @@ double randit(int ini){
  if(ini==1) srand(time(NULL));
  return (((rand()%100) -50.) /100.);
 }
+
 
 #endif
 

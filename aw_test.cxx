@@ -30,7 +30,7 @@ double randit(int ini=0);
 
 int ELG[16], EHG[16];
 
-Read_A2_class detector;
+Read_A2_class detectors;
 
 int main(int argc, char *argv[])
 {
@@ -92,9 +92,24 @@ int main(int argc, char *argv[])
   // the hard working functions are invoked here:
   // loads correlation id -> channel  for all detectors in initfile
   // prepares the readout one (including allocating memory for eventbuffer)
-  detector.init(inputfile, configfile, verboselvl);
+  detectors.init(inputfile, configfile, verboselvl);
 
-  // ROOT init:
+// test if subsystems are active:
+//     TAGGER_TDC, TAGGER_SCALER, MWPC_W_TDC, MWPC_S_ADC,
+//     PID_ADC, PID_TDC, CB_ADC, CB_TDC,
+//     VETO_ADC, VETO_TDC, BAF2_S_ADC, BAF2_S_TDC, BAF2_L_ADC, BAF2_L_TDC,
+//     PBWO4_ADC, PBWO4_TDC, PBWO4_S_ADC, PBWO4_S_TDC,
+  for(int n=0; n<ARRAY_COUNT; n++) {
+	// exclude from test: if(n=TAGGER_SCALER) continue;
+	if(!detectors.is_active(n)) {
+	  printf("%s subsystem is missing!\n", SUBSYSTEM_NAMES[n]);
+	  return(-1);
+	}
+  }
+   
+		
+
+	 // ROOT init:
  
   /*
   TFile hfile(outputfile,"RECREATE","NTEC analysis");
@@ -131,7 +146,7 @@ int main(int argc, char *argv[])
   int m=1; 
   unsigned int noe=0;
   do{ // begining of the readout loop 
-    m=detector.read_one_event();  // reads one full event into internal buffer, !=0 if there is any data
+    m=detectors.read_one_event();  // reads one full event into internal buffer, !=0 if there is any data
     noe++;
 	if(m!=1) printf("\nEnd of file reached.\n");
     // if(noe>=1) m=0;  // exit after x events analysed
@@ -141,7 +156,11 @@ int main(int argc, char *argv[])
       calibrate(); // example for calibration of energy to MeV
       
 /******* begin filling histograms **************/
-// valid variables:
+// valid detector subsystems:
+//     TAGGER_TDC, TAGGER_SCALER, MWPC_W_TDC, MWPC_S_ADC,
+//     PID_ADC, PID_TDC, CB_ADC, CB_TDC,
+//     VETO_ADC, VETO_TDC, BAF2_S_ADC, BAF2_S_TDC, BAF2_L_ADC, BAF2_L_TDC,
+//     PBWO4_ADC, PBWO4_TDC, PBWO4_S_ADC, PBWO4_S_TDC,
 
 /*
       for(int i=0; i<16;i++){   // sort in energy

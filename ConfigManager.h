@@ -87,6 +87,23 @@ public:
   ParamReader& get(int det){
     return pr[det];
   }
+  
+  int getnoCh(int det) const {
+    if(det < 0 || det >= N_DETECTORS) return -1;
+    return pr[det].getNumberOfElements();
+  }
+  int getADCMaxHits(int det) const {
+    if(det < 0 || det >= N_DETECTORS) return -1;
+    return pr[det].getADCMaxHits();
+  }
+  int getTDCMaxHits(int det) const {
+    if(det < 0 || det >= N_DETECTORS) return -1;
+    return pr[det].getTDCMaxHits();
+  }
+  int getSCALERMaxHits(int det) const {
+    if(det < 0 || det >= N_DETECTORS) return -1;
+    return pr[det].getSCALERMaxHits();
+  }
 
   int findDetector(const char *name){
     for(int i = 0; i < N_DETECTORS; i++){

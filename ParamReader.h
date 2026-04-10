@@ -6,6 +6,7 @@
 #include <cstring>
 #include <cctype>
 #include <limits>
+#include <algorithm>   // <-- REQUIRED for std::max
 #include "UtHash.h"
 
 /* ---------------- Record ---------------- */
@@ -55,9 +56,10 @@ private:
     int max_tdc_suffix;
     int max_scaler_suffix;
 
-    int adc_number;
-    int tdc_number;
-    int scaler_number;
+    // ✅ FIX: missing members
+    int adc_maxhits;
+    int tdc_maxhits;
+    int scaler_maxhits;
 
     int adc_pos;
     int tdc_pos;
@@ -94,10 +96,13 @@ private:
 
         int new_cap = rec_cap ? rec_cap * 2 : 128;
         Record **new_arr = (Record**)malloc(new_cap * sizeof(Record*));
-        if (!new_arr) exit(EXIT_FAILURE);
+        if (!new_arr) {
+            fprintf(stderr, "Out of memory\n");
+            exit(EXIT_FAILURE);
+        }
 
-        for (int i = 0; i < rec_cnt; ++i)
-            new_arr[i] = records[i];
+        if (records)
+            memcpy(new_arr, records, rec_cnt * sizeof(Record*)); // ✅ faster copy
 
         free(records);
         records = new_arr;
@@ -105,28 +110,52 @@ private:
     }
 
     bool insertIntoHashes(Record *r) {
+        // -------- ADC --------
         if (adc_pos > 0) {
-            ADCEntry *e = (ADCEntry*)malloc(sizeof(ADCEntry));
-            if (!e) return false;
-            e->adc = r->adc;
-            e->rec = r;
-            HASH_ADD_INT(_adc_hash, adc, e);
+            ADCEntry *existing = NULL;
+            HASH_FIND_INT(_adc_hash, &r->adc, existing);
+
+            if (existing) {
+                existing->rec = r; // replace
+            } else {
+                ADCEntry *e = (ADCEntry*)malloc(sizeof(ADCEntry));
+                if (!e) return false;
+                e->adc = r->adc;
+                e->rec = r;
+                HASH_ADD_INT(_adc_hash, adc, e);
+            }
         }
 
+        // -------- TDC --------
         if (tdc_pos > 0) {
-            TDCEntry *e = (TDCEntry*)malloc(sizeof(TDCEntry));
-            if (!e) return false;
-            e->tdc = r->tdc;
-            e->rec = r;
-            HASH_ADD_INT(_tdc_hash, tdc, e);
+            TDCEntry *existing = NULL;
+            HASH_FIND_INT(_tdc_hash, &r->tdc, existing);
+
+            if (existing) {
+                existing->rec = r;
+            } else {
+                TDCEntry *e = (TDCEntry*)malloc(sizeof(TDCEntry));
+                if (!e) return false;
+                e->tdc = r->tdc;
+                e->rec = r;
+                HASH_ADD_INT(_tdc_hash, tdc, e);
+            }
         }
 
+        // -------- SCALER --------
         if (scaler_pos > 0) {
-            ScalerEntry *e = (ScalerEntry*)malloc(sizeof(ScalerEntry));
-            if (!e) return false;
-            e->scaler = r->scaler;
-            e->rec = r;
-            HASH_ADD_INT(_scaler_hash, scaler, e);
+            ScalerEntry *existing = NULL;
+            HASH_FIND_INT(_scaler_hash, &r->scaler, existing);
+
+            if (existing) {
+                existing->rec = r;
+            } else {
+                ScalerEntry *e = (ScalerEntry*)malloc(sizeof(ScalerEntry));
+                if (!e) return false;
+                e->scaler = r->scaler;
+                e->rec = r;
+                HASH_ADD_INT(_scaler_hash, scaler, e);
+            }
         }
 
         return true;
@@ -161,38 +190,37 @@ public:
         : _adc_hash(NULL), _tdc_hash(NULL), _scaler_hash(NULL),
           records(NULL), rec_cnt(0), rec_cap(0), filename(NULL),
           max_adc_suffix(-1), max_tdc_suffix(-1), max_scaler_suffix(-1),
-          adc_number(0), tdc_number(0), scaler_number(0),
+          adc_maxhits(0), tdc_maxhits(0), scaler_maxhits(0),
           adc_pos(0), tdc_pos(0), scaler_pos(0),
           _emptyFile(true)
     {}
 
-    /* ---------------- init (safe replacement for assignment) ---------------- */
+    /* ---------------- init ---------------- */
     void init(const char *fname,
-              int adc_pos_=0,   int adc_number_=0,
-              int tdc_pos_=0,   int tdc_number_=0,
-              int scaler_pos_=0,int scaler_number_=0)
+              int adc_pos_=0,   int adc_maxhits_=0,
+              int tdc_pos_=0,   int tdc_maxhits_=0,
+              int scaler_pos_=0,int scaler_maxhits_=0)
     {
         freeHashes();
-        for (int i = 0; i < rec_cnt; ++i) free(records[i]);
+
+        for (int i = 0; i < rec_cnt; ++i)
+            free(records[i]);
         free(records);
 
-        _adc_hash    = NULL;
-        _tdc_hash    = NULL;
-        _scaler_hash = NULL;
-
-        records = NULL;
-        rec_cnt = 0;
-        rec_cap = 0;
+        _adc_hash = NULL;
+	    _tdc_hash = NULL;
+	    _scaler_hash = NULL;
+	   
+	    records = NULL;
+        rec_cnt = rec_cap = 0;
 
         filename = fname;
 
-        max_adc_suffix = -1;
-        max_tdc_suffix = -1;
-        max_scaler_suffix = -1;
+        max_adc_suffix = max_tdc_suffix = max_scaler_suffix = -1;
 
-        adc_number = adc_number_;
-        tdc_number = tdc_number_;
-        scaler_number = scaler_number_;
+        adc_maxhits = adc_maxhits_;
+        tdc_maxhits = tdc_maxhits_;
+        scaler_maxhits = scaler_maxhits_;
 
         adc_pos = adc_pos_;
         tdc_pos = tdc_pos_;
@@ -212,7 +240,9 @@ public:
     /* ---------------- read file ---------------- */
     bool readFile() {
         freeHashes();
-        for (int i = 0; i < rec_cnt; ++i) free(records[i]);
+
+        for (int i = 0; i < rec_cnt; ++i)
+            free(records[i]);
         free(records);
 
         records = NULL;
@@ -249,9 +279,8 @@ public:
             char *tokens[25];
             int tokenCount = 0;
 
-            while ((tok = strtok(NULL, " \t\r\n")) && tokenCount < 25) {
+            while ((tok = strtok(NULL, " \t\r\n")) && tokenCount < 25)
                 tokens[tokenCount++] = tok;
-            }
 
             int adc_val=-1, tdc_val=-1, scaler_val=-1;
             int adc_suf=-1, tdc_suf=-1, scaler_suf=-1;
@@ -275,7 +304,7 @@ public:
                 return false;
             }
 
-            rec->id = elementLine;
+            rec->id = elementLine++;
             rec->adc = adc_val;
             rec->tdc = tdc_val;
             rec->scaler = scaler_val;
@@ -285,7 +314,6 @@ public:
 
             ensureCapacity();
             records[rec_cnt++] = rec;
-            elementLine++;
 
             if (adc_suf > max_adc_suffix) max_adc_suffix = adc_suf;
             if (tdc_suf > max_tdc_suffix) max_tdc_suffix = tdc_suf;
@@ -325,9 +353,18 @@ public:
 
     /* ---------------- info ---------------- */
     int getNumberOfElements() const { return rec_cnt; }
-    int getMaxADCSuffix() const { return max_adc_suffix; }
-    int getMaxTDCSuffix() const { return max_tdc_suffix; }
-    int getMaxScalerSuffix() const { return max_scaler_suffix; }
+
+    int getADCMaxHits() const {
+        return std::max(max_adc_suffix + 1, adc_maxhits);
+    }
+
+    int getTDCMaxHits() const {
+        return std::max(max_tdc_suffix + 1, tdc_maxhits);
+    }
+
+    int getSCALERMaxHits() const {
+        return std::max(max_scaler_suffix + 1, scaler_maxhits);
+    }
 };
 
 #endif
