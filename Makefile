@@ -18,7 +18,7 @@ ROOTCFLAGS := $(shell root-config --cflags)
 ROOTLIBS   := $(shell root-config --libs)
 
 # Flags
-CXXFLAGS := -Wall -g -MMD -MP $(ROOTCFLAGS)
+CXXFLAGS := -Wall -O3 -g -MMD -MP $(ROOTCFLAGS)
 LDFLAGS  := -g
 LIBS     := $(ROOTLIBS)
 

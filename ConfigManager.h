@@ -79,8 +79,9 @@ public:
   void printSummary(){
 	printf("\n");
     for(int m=0; m<N_DETECTORS; m++){
-      printf("%d %s loaded %d elements\n",
-             m, DetectorName[m], pr[m].getNumberOfElements());
+      printf("%d %s loaded %d elements with max %d adc, %d tdc, %d scaler hits\n",
+             m, DetectorName[m], pr[m].getNumberOfElements(), 
+             pr[m].getADCMaxHits(), pr[m].getTDCMaxHits(), pr[m].getSCALERMaxHits());
     }
   }
 

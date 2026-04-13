@@ -6,11 +6,11 @@ pdrexler@uni-mainz.de
 
 // no root output atm
 
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <locale.h>
 
 #include "A2_ReadoutClass.h"
 
@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
   } 
 
   randit(1);  // initialisation of random number, +-0.5, use: double nr=randit(); 
-
+  setlocale(LC_NUMERIC, "en_US.UTF-8"); // sepparators in numbers
 
   time(&start_t);
   // the hard working functions are invoked here:
@@ -106,62 +106,92 @@ int main(int argc, char *argv[])
 	  return(-1);
 	}
   }
-   
-		
 
-	 // ROOT init:
- 
-  /*
+  // ROOT init:
+  if(strlen(outputfile)<5){
+    printf("No acceptable output file: %s\n", outputfile);
+    return(-1);
+  }
   TFile hfile(outputfile,"RECREATE","NTEC analysis");
   hfile.SetCompressionLevel(1);
-  */
 
   // ******* begin initialisation histograms **************
-  /*  
+  printf("booking histograms\n");
+ 
   char name[100];
   int BINS=4050;
   int RANGE=4050;
 
-  TH1D *pENERGY_LG[16];
-  for (Int_t i=0; i<16; i++){  
-    sprintf(name,"ENERGY_LG_%02d",i);
-    pENERGY_LG[i]=new TH1D(name,"",BINS-0,0,RANGE);
-  }
-  TH1D *pENERGY_HG[16];
-  for (Int_t i=0; i<16; i++){  
-    sprintf(name,"ENERGY_HG_%02d",i);
-    pENERGY_HG[i]=new TH1D(name,"",BINS-0,0,RANGE);
-  }
-*/
-   
-   /*  hfile.mkdir ("unsort");
-  hfile.mkdir ("ped_substr");
-  hfile.mkdir ("sort");
+  int no_of_ch;
 
-  hfile.cd ("sort");
-*/
+  hfile.mkdir ("unsort");
+  hfile.mkdir ("tagger");
+  hfile.mkdir ("cb");
+
+  hfile.cd ("tagger");
+  no_of_ch=detectors.get_channels(TAGGER_TDC);
+  TH1D *pTAGGER_TDC[no_of_ch];
+  for (Int_t i=0; i<no_of_ch; i++){  
+    sprintf(name,"TAGGER_TDC_%03d",i);
+    pTAGGER_TDC[i]=new TH1D(name,"",2001,0,10000);
+  }
+  hfile.cd ("cb");
+
+  no_of_ch=detectors.get_channels(CB_ADC);
+  TH1D *pCB_ADC[no_of_ch];
+  for (Int_t i=0; i<no_of_ch; i++){  
+    sprintf(name,"CB_ADC_%03d",i);
+    pCB_ADC[i]=new TH1D(name,"",BINS-0,0,RANGE);
+  }
+ 
+  hfile.cd ("unsort");
+
   // ******* end initialisation histograms **************
   // ******* end root init
  
   int m=1; 
   unsigned int noe=0;
+  unsigned int data;
+  printf("Analysing event: %'d\n",noe);
   do{ // begining of the readout loop 
     m=detectors.read_one_event();  // reads one full event into internal buffer, !=0 if there is any data
     noe++;
-	if(m!=1) printf("\nEnd of file reached.\n");
+    if(m!=1) printf("\nEnd of file reached.\n");
+    if(noe%100000==0) printf("Analysing event: %'d\n",noe);
     // if(noe>=1) m=0;  // exit after x events analysed
-    if(noe%10000==0) printf("Analysing event: %i\n",noe);
 
     if(m==1){  // not eof for these files
       calibrate(); // example for calibration of energy to MeV
       
 /******* begin filling histograms **************/
-// valid detector subsystems:
+// Functions:
+//   - get number of channels of detector subsystem:
+//       detectors.get_channels(subsystem);
+//   - get number of hits of detector subsystem and channel in this event:
+//       detectors.get_hits(subsystem, channel);
+//   - get value:
+//       detectors.get(subsystem, channel, hit);
+
+// example: detectors.get(CB_TDC, 12, 2);
+
+//   valid detector subsystems:
 //     TAGGER_TDC, TAGGER_SCALER, MWPC_W_TDC, MWPC_S_ADC,
 //     PID_ADC, PID_TDC, CB_ADC, CB_TDC,
 //     VETO_ADC, VETO_TDC, BAF2_S_ADC, BAF2_S_TDC, BAF2_L_ADC, BAF2_L_TDC,
 //     PBWO4_ADC, PBWO4_TDC, PBWO4_S_ADC, PBWO4_S_TDC,
 
+      for(int ch=0; ch<detectors.get_channels(TAGGER_TDC); ch++){   // sort in taggertime
+        for(int hit=0; hit<detectors.get_hits(TAGGER_TDC, ch); hit++){
+          data=detectors.get(TAGGER_TDC, ch, hit);
+//          if(data>0) printf("Taggerdata: %d\n", data);
+          if(data>0) pTAGGER_TDC[ch]->Fill(data);
+        }
+      }
+
+      for(int ch=0; ch<detectors.get_channels(CB_ADC); ch++){   // sort in taggertime
+        data=detectors.get(CB_ADC, ch, 1);
+        if(data>0) pCB_ADC[ch]->Fill(data);
+      }
 /*
       for(int i=0; i<16;i++){   // sort in energy
         if(ELG[i]>0) pENERGY_LG[i]->Fill(ELG[i]);
@@ -173,21 +203,21 @@ int main(int argc, char *argv[])
     } 
     if(do_no_of_events==1){
       if(noe>=no_of_events){
-		 m=0;  // end after noe_o_events
-		 printf("Number of events reached!\n");
-	  }
-	}	 
+		    m=0;  // end after noe_o_events
+		    printf("Number of events reached!\n");
+	    }
+	  }	 
   }while(m==1);  // end of readout loop
-   
-  /*
+
   printf("Writing root file...\n");	
   hfile.Write();
   hfile.Close();
   printf("Root file written!\n");
-  */
+  
   time(&end_t);
   diff_t = difftime(end_t, start_t);
   printf("Execution time = %.0f s (%.1f min or %.1f h)\n", diff_t, diff_t/60.,diff_t/60./60.);
+  printf("Events analysed: %d\n", noe);
   printf("\nEnd of the neverending story!\n");
 }
 
