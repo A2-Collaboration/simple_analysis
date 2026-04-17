@@ -127,7 +127,7 @@ struct EpicsChan {
 int getch(void);
 
 class Array2D {
-  std::vector<unsigned int> data;
+  std::vector<long int> data;
   size_t hits{};
   size_t channels{};
   bool valid{false};
@@ -147,6 +147,7 @@ public:
     data.assign(c * h, 0u);
     next_hit.assign(c, 0);
     valid = true;
+    printf("Array2D_init: %s, ch: %ld, max_hits: %ld\n", SUBSYSTEM_NAMES[name], c, h);
   }
 
   void clear() {
@@ -154,7 +155,7 @@ public:
     std::fill(next_hit.begin(), next_hit.end(), 0);
   }
 
-  unsigned int get(size_t ch, size_t hidx) const {
+  long int get(size_t ch, size_t hidx) const {
     if (!valid || ch >= channels || hidx >= hits) {
       fprintf(stderr, "Warning %s: Accessing invalid element ch=%zu h=%zu\n", SUBSYSTEM_NAMES[own_name], ch, hidx);
       return 0;
@@ -162,19 +163,19 @@ public:
     return data[index(hidx, ch)];
   }
 
-  const unsigned int& operator()(size_t ch, size_t hidx) const {
+  const long int& operator()(size_t ch, size_t hidx) const {
     if (!valid || ch >= channels || hidx >= hits)
       throw std::out_of_range("Array2D access (const)");
     return data[index(hidx, ch)];
   }
 
-  unsigned int& operator()(size_t ch, size_t hidx) {
+  long int& operator()(size_t ch, size_t hidx) {
     if (!valid || ch >= channels || hidx >= hits)
       throw std::out_of_range("Array2D access");
     return data[index(hidx, ch)];
   }
 
-  void set(size_t ch, unsigned int val) {
+  void set(size_t ch, long int val) {
     if (!valid || ch >= channels) {
       fprintf(stderr, "Warning %s: Trying to write to invalid channel %zu\n", SUBSYSTEM_NAMES[own_name], ch);
       return;
@@ -189,7 +190,7 @@ public:
     next_hit[ch]++;
   }
 
-  void set_at(size_t ch, size_t hidx, unsigned int val) {
+  void set_at(size_t ch, size_t hidx, long int val) {
     if (!valid || ch >= channels || hidx >= hits) {
       fprintf(stderr, "Warning %s: Setting invalid element ch=%zu h=%zu\n", SUBSYSTEM_NAMES[own_name], ch, hidx);
       return;
@@ -290,7 +291,7 @@ public:
     return data_arrays[name].is_valid();
   }
 
-  unsigned int get(ArrayName name, size_t ch, size_t hidx) const {
+  long int get(ArrayName name, size_t ch, size_t hidx) const {
     if (static_cast<int>(name) < 0 || name >= ARRAY_COUNT) {
       fprintf(stderr, "Read_A2_class::get – invalid ArrayName %d\n", static_cast<int>(name));
       return 0;
@@ -453,6 +454,8 @@ int Read_A2_class::read_one_event(void) {
     printf("\n************* Start reading one event:  *******************\n");
   for (size_t i = 0; i < ARRAY_COUNT; ++i)
     data_arrays[i].clear();
+  cfg.reset_ref_data();       // clear reference data
+  
   read_event_header();
   int datablock_count = 0;
   do {
@@ -487,6 +490,49 @@ int Read_A2_class::read_one_event(void) {
     }
     no_reads += 4;
   } while (dataword != EEndEvent);
+
+  // substract TDC reference
+ // TAGGER_TDC,  MWPC_W_TDC, PID_TDC,
+// CB_TDC, PBWO4_TDC, PBWO4_S_TDC,
+/*
+  data_arrays[TAGGER_TDC]   .init(TAGGER_TDC,    cfg.getnoCh(D_TAGGER), cfg.getTDCMaxHits(D_TAGGER));
+  data_arrays[TAGGER_SCALER].init(TAGGER_SCALER, cfg.getnoCh(D_TAGGER), cfg.getSCALERMaxHits(D_TAGGER));
+  data_arrays[MWPC_W_TDC]   .init(MWPC_W_TDC,    cfg.getnoCh(D_MWPC_W), cfg.getTDCMaxHits(D_MWPC_W));
+  data_arrays[MWPC_S_ADC]   .init(MWPC_S_ADC,    cfg.getnoCh(D_MWPC_S), cfg.getADCMaxHits(D_MWPC_S));
+  data_arrays[PID_ADC]      .init(PID_ADC,       cfg.getnoCh(D_PID),     cfg.getADCMaxHits(D_PID));
+  data_arrays[PID_TDC]      .init(PID_TDC,       cfg.getnoCh(D_PID),     cfg.getTDCMaxHits(D_PID));
+  data_arrays[CB_ADC]       .init(CB_ADC,        cfg.getnoCh(D_CB),      cfg.getADCMaxHits(D_CB));
+  data_arrays[CB_TDC]       .init(CB_TDC,        cfg.getnoCh(D_CB),      cfg.getTDCMaxHits(D_CB));
+  data_arrays[VETO_ADC]     .init(VETO_ADC,      cfg.getnoCh(D_VETO),    cfg.getADCMaxHits(D_VETO));
+  data_arrays[VETO_TDC]     .init(VETO_TDC,      cfg.getnoCh(D_VETO),    cfg.getTDCMaxHits(D_VETO));
+  data_arrays[BAF2_S_ADC]   .init(BAF2_S_ADC,    cfg.getnoCh(D_BAF2_S),  cfg.getADCMaxHits(D_BAF2_S));
+  data_arrays[BAF2_S_TDC]   .init(BAF2_S_TDC,    cfg.getnoCh(D_BAF2_S),  cfg.getTDCMaxHits(D_BAF2_S));
+  data_arrays[BAF2_L_ADC]   .init(BAF2_L_ADC,    cfg.getnoCh(D_BAF2_L),  cfg.getADCMaxHits(D_BAF2_L));
+  data_arrays[BAF2_L_TDC]   .init(BAF2_L_TDC,    cfg.getnoCh(D_BAF2_L),  cfg.getTDCMaxHits(D_BAF2_L));
+  data_arrays[PBWO4_ADC]    .init(PBWO4_ADC,     cfg.getnoCh(D_PBWO4),   cfg.getADCMaxHits(D_PBWO4));
+  data_arrays[PBWO4_TDC]    .init(PBWO4_TDC,     cfg.getnoCh(D_PBWO4),   cfg.getTDCMaxHits(D_PBWO4));
+  data_arrays[PBWO4_S_ADC]  .init(PBWO4_S_ADC,   cfg.getnoCh(D_PBWO4_S), cfg.getADCMaxHits(D_PBWO4_S));
+  data_arrays[PBWO4_S_TDC]  .init(PBWO4_S_TDC,   cfg.getnoCh(D_PBWO4_S), cfg.getTDCMaxHits(D_PBWO4_S));
+*/
+
+
+  int id;
+  int ref_data, data, diff;
+// Tagger TDC
+
+  for(int ch=0; ch<get_channels(TAGGER_TDC); ch++){
+    id=cfg.get(D_TAGGER).getTDC_id(ch);
+	ref_data=cfg.get_ref_data(id);
+    if(verboselvl>=20) printf("Ch: %d, ID: %d ref_data: %d\n", ch, id, ref_data);
+    for(size_t h=0; h<data_arrays[TAGGER_TDC].get_hits(ch); h++){
+      data=data_arrays[TAGGER_TDC].get(ch, h);
+      diff=data-ref_data;
+      data_arrays[TAGGER_TDC].set_at(ch, h, diff);
+    }
+  }
+//  exit(0);
+  // end substract TDC reference
+  
   if (verboselvl >= 10) printf("\n %i data blocks in event\n", datablock_count);
   if (verboselvl >= 20) printf("\n");
   ++noe;
@@ -554,7 +600,7 @@ void Read_A2_class::decode_scaler(void) {
       break;
     }
     if (verboselvl >= 20) printf("Scaler %4u  value %10u", index, value);
-    ch = cfg.get(D_TAGGER).findScaler(index);
+    ch = cfg.get(D_TAGGER).getScaler_ch(index);
     if (ch >= 0) {
       if (verboselvl >= 20)
         printf("   Tagger Scaler hit: %4i (ch %3i) V %10u\n", index, ch, value);
@@ -625,99 +671,103 @@ void Read_A2_class::decode_epics(void) {
 }
 
 void Read_A2_class::decode_adc(unsigned int dataword) {
-  unsigned short id, value;
+  long int id, value;
   int ch;
   id    = dataword & 0xffff;
   value = (dataword >> 16) & 0xffff;
 
+  
   if (verboselvl>= 20) printf("Data: id: %5i, value %5i \t", id, value);
 
-  ch = cfg.get(D_TAGGER).findTDC(id);
+  // test if id is an reference tdc channel and store it if it matches
+  cfg.store_ref_data(id, value);
+
+  ch = cfg.get(D_TAGGER).getTDC_ch(id);
   if (ch >= 0) {
     if (verboselvl>= 20) printf("   TAGGER TDC hit: %4i (ch %3i) V %5i", id, ch, value);
     tagger_tdc().set(ch, value);
   }
   
-  ch = cfg.get(D_MWPC_W).findTDC(id);
+  ch = cfg.get(D_MWPC_W).getTDC_ch(id);
   if(ch >= 0){
     if(verboselvl>= 20) printf("   MWPC TDC hit: %4i (ch %3i) V %5i", id, ch, value);
     mwpc_w_tdc().set(ch, value);
   }
-  ch = cfg.get(D_MWPC_S).findADC(id);
+  ch = cfg.get(D_MWPC_S).getADC_ch(id);
   if(ch >=0){
     if(verboselvl>= 20) printf("   MWPC ADC hit: %4i (ch %3i) V %5i", id, ch, value);
     mwpc_s_adc().set(ch, value);
   }
 
-  ch = cfg.get(D_PID).findADC(id);
+  ch = cfg.get(D_PID).getADC_ch(id);
   if(ch >= 0){
     if(verboselvl>= 20) printf("   PID ADC hit: %4i (ch %3i) V %5i", id, ch, value);
     pid_adc().set(ch, value);
   }
-  ch = cfg.get(D_PID).findTDC(id);
+  ch = cfg.get(D_PID).getTDC_ch(id);
   if(ch >= 0){
     if(verboselvl>=20) printf("   PID TDC hit: %4i (ch %3i) V %5i", id, ch, value);
     pid_tdc().set(ch, value);
   }
-  ch = cfg.get(D_CB).findADC(id);
+  ch = cfg.get(D_CB).getADC_ch(id);
   if(ch >= 0){
     if(verboselvl>=20) printf("   CB ADC hit: %4i (ch %3i) V %5i", id, ch, value);
     cb_adc().set(ch, value);
   }
-  ch = cfg.get(D_CB).findTDC(id);
+  ch = cfg.get(D_CB).getTDC_ch(id);
   if(ch >= 0){
     if(verboselvl>=20) printf("   CB TDC hit: %4i (ch %3i) V %5i", id, ch, value);
     cb_tdc().set(ch, value);
   }
 
-  ch = cfg.get(D_VETO).findADC(id);
+  ch = cfg.get(D_VETO).getADC_ch(id);
   if(ch >= 0){
     if(verboselvl>=20) printf("   VETO ADC hit: %4i (ch %3i) V %5i", id, ch, value);
     veto_adc().set(ch, value);
   }
-  ch = cfg.get(D_VETO).findTDC(id);
+  ch = cfg.get(D_VETO).getTDC_ch(id);
   if(ch >= 0){
     if(verboselvl>=20) printf("   VETO TDC hit: %4i (ch %3i) V %5i", id, ch, value);
     veto_tdc().set(ch, value);
   }
   
-  ch = cfg.get(D_PBWO4).findADC(id);
+  ch = cfg.get(D_PBWO4).getADC_ch(id);
   if(ch >= 0){
     if(verboselvl>=20) printf("   PWO ADC hit: %4i (ch %3i) V %5i", id, ch, value);
     pbwo4_adc().set(ch, value);
   }
-  ch = cfg.get(D_PBWO4).findTDC(id);
+  ch = cfg.get(D_PBWO4).getTDC_ch(id);
   if(ch >= 0){
     if(verboselvl>=20) printf("   PWO TDC hit: %4i (ch %3i) V %5i", id, ch, value);
     pbwo4_tdc().set(ch, value);
   }
-  ch = cfg.get(D_PBWO4_S).findADC(id);
+  ch = cfg.get(D_PBWO4_S).getADC_ch(id);
   if(ch >= 0){
     if(verboselvl>=20) printf("   PWO sens ADC hit: %4i (ch %3i) V %5i", id, ch, value);
     pbwo4_s_adc().set(ch, value);
   }
-  ch = cfg.get(D_PBWO4_S).findTDC(id);
+  ch = cfg.get(D_PBWO4_S).getTDC_ch(id);
   if(ch >= 0){
     if(verboselvl>=20) printf("   PWO sens TDC hit: %4i (ch %3i) V %5i", id, ch, value);
     pbwo4_s_tdc().set(ch, value);
   }
     
-  ch = cfg.get(D_BAF2_S).findADC(id);
+  ch = cfg.get(D_BAF2_S).getADC_ch(id);
   if(ch >= 0){
     if(verboselvl>=20) printf("   BaF2 short ADC hit: %4i (ch %3i) V %5i", id, ch, value);
     baf2_s_adc().set(ch, value);
   }
-  ch = cfg.get(D_BAF2_L).findADC(id);
+  ch = cfg.get(D_BAF2_L).getADC_ch(id);
   if(ch >= 0){
     if(verboselvl>=20) printf("   BaF2 long ADC hit: %4i (ch %3i) V %5i", id, ch, value);
     baf2_l_adc().set(ch, value);
   }
-  ch = cfg.get(D_BAF2_L).findTDC(id);
+  ch = cfg.get(D_BAF2_L).getTDC_ch(id);
   if(ch >= 0){
     if(verboselvl>=20) printf("   BaF2 long TDC hit: %4i (ch %3i) V %5i", id, ch, value);
     baf2_l_tdc().set(ch, value);
   }
-  ch = cfg.get(D_BAF2_S).findTDC(id);
+  ch = cfg.get(D_BAF2_S).getTDC_ch(id);
   if(ch >= 0){
     if(verboselvl>=20) printf("   BaF2 short TDC hit: %4i (ch %3i) V %5i", id, ch, value);
     baf2_s_tdc().set(ch, value);

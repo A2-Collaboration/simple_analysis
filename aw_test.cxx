@@ -106,7 +106,6 @@ int main(int argc, char *argv[])
 	  return(-1);
 	}
   }
-
   // ROOT init:
   if(strlen(outputfile)<5){
     printf("No acceptable output file: %s\n", outputfile);
@@ -133,7 +132,7 @@ int main(int argc, char *argv[])
   TH1D *pTAGGER_TDC[no_of_ch];
   for (Int_t i=0; i<no_of_ch; i++){  
     sprintf(name,"TAGGER_TDC_%03d",i);
-    pTAGGER_TDC[i]=new TH1D(name,"",2001,0,10000);
+    pTAGGER_TDC[i]=new TH1D(name,"",20001,-20000,20000);
   }
   hfile.cd ("cb");
 
@@ -151,7 +150,7 @@ int main(int argc, char *argv[])
  
   int m=1; 
   unsigned int noe=0;
-  unsigned int data;
+  long int data;
   printf("Analysing event: %'d\n",noe);
   do{ // begining of the readout loop 
     m=detectors.read_one_event();  // reads one full event into internal buffer, !=0 if there is any data
