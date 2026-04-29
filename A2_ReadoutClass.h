@@ -127,7 +127,7 @@ struct EpicsChan {
 int getch(void);
 
 class Array2D {
-  std::vector<long int> data;
+  std::vector<uint32_t> data;
   size_t hits{};
   size_t channels{};
   bool valid{false};
@@ -155,7 +155,7 @@ public:
     std::fill(next_hit.begin(), next_hit.end(), 0);
   }
 
-  long int get(size_t ch, size_t hidx) const {
+  uint32_t get(size_t ch, size_t hidx) const {
     if (!valid || ch >= channels || hidx >= hits) {
       fprintf(stderr, "Warning %s: Accessing invalid element ch=%zu h=%zu\n", SUBSYSTEM_NAMES[own_name], ch, hidx);
       return 0;
@@ -163,13 +163,13 @@ public:
     return data[index(hidx, ch)];
   }
 
-  const long int& operator()(size_t ch, size_t hidx) const {
+  const uint32_t & operator()(size_t ch, size_t hidx) const {
     if (!valid || ch >= channels || hidx >= hits)
       throw std::out_of_range("Array2D access (const)");
     return data[index(hidx, ch)];
   }
 
-  long int& operator()(size_t ch, size_t hidx) {
+  uint32_t & operator()(size_t ch, size_t hidx) {
     if (!valid || ch >= channels || hidx >= hits)
       throw std::out_of_range("Array2D access");
     return data[index(hidx, ch)];
@@ -183,7 +183,7 @@ public:
     size_t hidx = next_hit[ch];
     if (hidx >= hits) {
       fprintf(stderr, "Warning %s: Channel %zu overflow (capacity %zu hits)\n", SUBSYSTEM_NAMES[own_name], ch, hits);
-      exit(0);
+exit(0);
       return;
     }
     data[index(hidx, ch)] = val;
@@ -236,6 +236,8 @@ protected:
   EpicsChan epicschan;
   int verboselvl = 0;
   time_t start_t, end_t; 
+  double livetime_scaler=0;
+  double deadtime_scaler=0;
 
 public:
   Read_A2_class() = default;
@@ -248,7 +250,10 @@ public:
   int init(const char* _file, const char* configfile, int verboselvl_ = 20);
   int read_one_event(void);
   double get_value(int channel);
-
+  void set_verboselevel(int verboselvl_ = 20){verboselvl = verboselvl_;}
+  double get_livetime_scaler(void){ return livetime_scaler;}
+  double get_deadtime_scaler(void){ return deadtime_scaler;}
+  
   Array2D& tagger_tdc()      { return data_arrays[TAGGER_TDC]; }
   Array2D& tagger_scaler()   { return data_arrays[TAGGER_SCALER]; }
   Array2D& mwpc_w_tdc()      { return data_arrays[MWPC_W_TDC]; }
@@ -291,7 +296,7 @@ public:
     return data_arrays[name].is_valid();
   }
 
-  long int get(ArrayName name, size_t ch, size_t hidx) const {
+  uint32_t get(ArrayName name, size_t ch, size_t hidx) const {
     if (static_cast<int>(name) < 0 || name >= ARRAY_COUNT) {
       fprintf(stderr, "Read_A2_class::get – invalid ArrayName %d\n", static_cast<int>(name));
       return 0;
@@ -357,21 +362,21 @@ int Read_A2_class::init(const char* _file, const char* configfile, int verboselv
   data_arrays[TAGGER_TDC]   .init(TAGGER_TDC,    cfg.getnoCh(D_TAGGER), cfg.getTDCMaxHits(D_TAGGER));
   data_arrays[TAGGER_SCALER].init(TAGGER_SCALER, cfg.getnoCh(D_TAGGER), cfg.getSCALERMaxHits(D_TAGGER));
   data_arrays[MWPC_W_TDC]   .init(MWPC_W_TDC,    cfg.getnoCh(D_MWPC_W), cfg.getTDCMaxHits(D_MWPC_W));
-  data_arrays[MWPC_S_ADC]   .init(MWPC_S_ADC,    cfg.getnoCh(D_MWPC_S), cfg.getADCMaxHits(D_MWPC_S));
+//  data_arrays[MWPC_S_ADC]   .init(MWPC_S_ADC,    cfg.getnoCh(D_MWPC_S), cfg.getADCMaxHits(D_MWPC_S));
   data_arrays[PID_ADC]      .init(PID_ADC,       cfg.getnoCh(D_PID),     cfg.getADCMaxHits(D_PID));
   data_arrays[PID_TDC]      .init(PID_TDC,       cfg.getnoCh(D_PID),     cfg.getTDCMaxHits(D_PID));
   data_arrays[CB_ADC]       .init(CB_ADC,        cfg.getnoCh(D_CB),      cfg.getADCMaxHits(D_CB));
   data_arrays[CB_TDC]       .init(CB_TDC,        cfg.getnoCh(D_CB),      cfg.getTDCMaxHits(D_CB));
-  data_arrays[VETO_ADC]     .init(VETO_ADC,      cfg.getnoCh(D_VETO),    cfg.getADCMaxHits(D_VETO));
-  data_arrays[VETO_TDC]     .init(VETO_TDC,      cfg.getnoCh(D_VETO),    cfg.getTDCMaxHits(D_VETO));
-  data_arrays[BAF2_S_ADC]   .init(BAF2_S_ADC,    cfg.getnoCh(D_BAF2_S),  cfg.getADCMaxHits(D_BAF2_S));
-  data_arrays[BAF2_S_TDC]   .init(BAF2_S_TDC,    cfg.getnoCh(D_BAF2_S),  cfg.getTDCMaxHits(D_BAF2_S));
+//  data_arrays[VETO_ADC]     .init(VETO_ADC,      cfg.getnoCh(D_VETO),    cfg.getADCMaxHits(D_VETO));
+//  data_arrays[VETO_TDC]     .init(VETO_TDC,      cfg.getnoCh(D_VETO),    cfg.getTDCMaxHits(D_VETO));
+//  data_arrays[BAF2_S_ADC]   .init(BAF2_S_ADC,    cfg.getnoCh(D_BAF2_S),  cfg.getADCMaxHits(D_BAF2_S));
+//  data_arrays[BAF2_S_TDC]   .init(BAF2_S_TDC,    cfg.getnoCh(D_BAF2_S),  cfg.getTDCMaxHits(D_BAF2_S));
   data_arrays[BAF2_L_ADC]   .init(BAF2_L_ADC,    cfg.getnoCh(D_BAF2_L),  cfg.getADCMaxHits(D_BAF2_L));
   data_arrays[BAF2_L_TDC]   .init(BAF2_L_TDC,    cfg.getnoCh(D_BAF2_L),  cfg.getTDCMaxHits(D_BAF2_L));
-  data_arrays[PBWO4_ADC]    .init(PBWO4_ADC,     cfg.getnoCh(D_PBWO4),   cfg.getADCMaxHits(D_PBWO4));
-  data_arrays[PBWO4_TDC]    .init(PBWO4_TDC,     cfg.getnoCh(D_PBWO4),   cfg.getTDCMaxHits(D_PBWO4));
-  data_arrays[PBWO4_S_ADC]  .init(PBWO4_S_ADC,   cfg.getnoCh(D_PBWO4_S), cfg.getADCMaxHits(D_PBWO4_S));
-  data_arrays[PBWO4_S_TDC]  .init(PBWO4_S_TDC,   cfg.getnoCh(D_PBWO4_S), cfg.getTDCMaxHits(D_PBWO4_S));
+//  data_arrays[PBWO4_ADC]    .init(PBWO4_ADC,     cfg.getnoCh(D_PBWO4),   cfg.getADCMaxHits(D_PBWO4));
+//  data_arrays[PBWO4_TDC]    .init(PBWO4_TDC,     cfg.getnoCh(D_PBWO4),   cfg.getTDCMaxHits(D_PBWO4));
+//  data_arrays[PBWO4_S_ADC]  .init(PBWO4_S_ADC,   cfg.getnoCh(D_PBWO4_S), cfg.getADCMaxHits(D_PBWO4_S));
+//  data_arrays[PBWO4_S_TDC]  .init(PBWO4_S_TDC,   cfg.getnoCh(D_PBWO4_S), cfg.getTDCMaxHits(D_PBWO4_S));
   in = fopen(filename, "rb");
   if (in == nullptr) {
     printf("%s doesn't exist!!!\n", filename);
@@ -456,8 +461,9 @@ int Read_A2_class::read_one_event(void) {
     data_arrays[i].clear();
   cfg.reset_ref_data();       // clear reference data
   
-  read_event_header();
+  if(read_event_header()==EEndBuff) return 0;
   int datablock_count = 0;
+//  int oldvl;
   do {
     rv = read_one_dataword(dataword);
     if(rv==0){
@@ -466,8 +472,11 @@ int Read_A2_class::read_one_event(void) {
     }
     switch (dataword) {
       case EScalerBuffer:
-        if (verboselvl >= 20) printf("Scaler buffer\n");
+		// oldvl=verboselvl;
+		// verboselvl=100;
+        if (verboselvl >= 20) printf("Scaler buffer: 0x%x\n", dataword);
         decode_scaler();
+		// verboselvl=oldvl;
         break;
       case EEPICSBuffer:
         if (verboselvl >= 20) printf("Epics buffer\n");
@@ -517,18 +526,25 @@ int Read_A2_class::read_one_event(void) {
 
 
   int id;
-  int ref_data, data, diff;
+  long int ref_data, data, diff;
 // Tagger TDC
 
   for(int ch=0; ch<get_channels(TAGGER_TDC); ch++){
     id=cfg.get(D_TAGGER).getTDC_id(ch);
-	ref_data=cfg.get_ref_data(id);
-    if(verboselvl>=20) printf("Ch: %d, ID: %d ref_data: %d\n", ch, id, ref_data);
-    for(size_t h=0; h<data_arrays[TAGGER_TDC].get_hits(ch); h++){
-      data=data_arrays[TAGGER_TDC].get(ch, h);
-      diff=data-ref_data;
-      data_arrays[TAGGER_TDC].set_at(ch, h, diff);
-    }
+    ref_data=cfg.get_ref_data(id);
+    for(int hit=0; hit<(int)data_arrays[TAGGER_TDC].get_hits(ch); hit++){
+      if(verboselvl>=20 && hit==0) printf("Ch: %d, ID: %d ref_data: %ld\n", ch, id, ref_data);
+	    data=data_arrays[TAGGER_TDC].get(ch, hit);
+      diff=data-ref_data+10000;
+      if(ref_data!=UINT_MAX){  // valid refdata found
+        if(diff<0) printf("Referenced time data is smaller 0! %ld", diff);
+        data_arrays[TAGGER_TDC].set_at(ch, hit, diff);
+	    }
+	     else{
+        if(verboselvl>=0) printf("No ref data found for Ch: %d, hit %d, ID: %d\n", ch, hit, id);
+		    data_arrays[TAGGER_TDC].set_at(ch, hit, 0);
+	    }
+	  }
   }
 //  exit(0);
   // end substract TDC reference
@@ -542,6 +558,7 @@ int Read_A2_class::read_one_event(void) {
 int Read_A2_class::read_event_header(void) {
   fread_or_die(&eventheaderinfo, sizeof(eventheaderinfo), 1, in, "Read_A2_class::read_event_header");
   events += sizeof(eventheaderinfo) / 4;
+  if(eventheaderinfo.evNo==eventheaderinfo.evLen) return eventheaderinfo.evLen; // should be EEndBuff
   if (verboselvl >= 10) {
     printf("  Event: %u, len: %u, adcInd: %i, adcCnt: %i\n\n",
            eventheaderinfo.evNo,
@@ -583,7 +600,7 @@ void Read_A2_class::undo_read_one_dataword(void) {
 }
 
 void Read_A2_class::decode_scaler(void) {
-  unsigned int index, value;
+  unsigned int id, value;
   int ch;
   if (verboselvl >= 10) printf("Scaler block detected\n");
   for (int i = 0; i < 2000; ++i) {
@@ -591,21 +608,28 @@ void Read_A2_class::decode_scaler(void) {
       printf("EoF in scaler event\n");
       break;
     }
-    if(read_one_dataword(index)==0){
+    if(read_one_dataword(id)==0){
       printf("EoF in scaler event\n");
       break;
     }
-    if(index == 0xfefefefe) {
-      if (verboselvl >= 20) printf("****** End of tagger block \n");
+    if(id == 0xfefefefe) {
+      if(verboselvl >= 20) printf("****** End of scaler block \n");
+      if(verboselvl >= 30) printf("Tagger scaler data ch 10: %d, ch 100: %d, ch 200: %d\n", 
+                                      tagger_scaler().get(10, 0), tagger_scaler().get(100, 0),
+									  tagger_scaler().get(200, 0));
       break;
     }
-    if (verboselvl >= 20) printf("Scaler %4u  value %10u", index, value);
-    ch = cfg.get(D_TAGGER).getScaler_ch(index);
+    if (verboselvl >= 20) printf("Scaler %4u  value %10u", id, value);
+    if(id==190) livetime_scaler+=value;
+    if(id==191) deadtime_scaler+=value;
+    ch = cfg.get(D_TAGGER).getScaler_ch(id);
     if (ch >= 0) {
+	  tagger_scaler().set(ch, value);
       if (verboselvl >= 20)
-        printf("   Tagger Scaler hit: %4i (ch %3i) V %10u\n", index, ch, value);
-    } else if (verboselvl >= 20) {
-      printf("   Unknown id: %4i, value: %10u\n", index, value);
+        printf("   Tagger Scaler hit: %4i (ch %3i) V %10u\n", id, ch, value);
+    }
+     else if (verboselvl >= 20) {
+      printf("   Unknown id: %4i, value: %10u\n", id, value);
     }
   }
 }
@@ -671,7 +695,7 @@ void Read_A2_class::decode_epics(void) {
 }
 
 void Read_A2_class::decode_adc(unsigned int dataword) {
-  long int id, value;
+  int id, value;
   int ch;
   id    = dataword & 0xffff;
   value = (dataword >> 16) & 0xffff;

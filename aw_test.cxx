@@ -38,10 +38,11 @@ int main(int argc, char *argv[])
   char configfile[200];
   char outputfile[200];
   unsigned int no_of_events=0, do_no_of_events=0;
-  int verboselvl=0;
- // verboselvl: 0: Status, critical  10: +info 20: +debug
   time_t start_t, end_t; 
   double diff_t;
+
+ // verboselvl: 0: Status, critical  10: +info 20: +debug
+  int verboselvl=0;
    
   if(argc<=1){ 
     printf("\nusage: %s -i datfile.dat -c configfile -o  rootfile.root [-n no_of_events]\n",
@@ -83,6 +84,18 @@ int main(int argc, char *argv[])
         return(-1);
       }
     }
+    if(strstr(argv[n],"-v")!=NULL){  // set verbose level
+      n++;  
+      printf("Verbose level!\n");
+      if(n<argc){
+        verboselvl=atoi(argv[n]);
+      }
+      else{
+        printf("Missing verbose level!\n");
+        return(-1);
+      }
+    }
+
   } 
 
   randit(1);  // initialisation of random number, +-0.5, use: double nr=randit(); 
@@ -99,13 +112,13 @@ int main(int argc, char *argv[])
 //     PID_ADC, PID_TDC, CB_ADC, CB_TDC,
 //     VETO_ADC, VETO_TDC, BAF2_S_ADC, BAF2_S_TDC, BAF2_L_ADC, BAF2_L_TDC,
 //     PBWO4_ADC, PBWO4_TDC, PBWO4_S_ADC, PBWO4_S_TDC,
-  for(int n=0; n<ARRAY_COUNT; n++) {
+/*  for(int n=0; n<ARRAY_COUNT; n++) {
 	// exclude from test: if(n=TAGGER_SCALER) continue;
 	if(!detectors.is_active(n)) {
 	  printf("%s subsystem is missing!\n", SUBSYSTEM_NAMES[n]);
 	  return(-1);
 	}
-  }
+        }*/
   // ROOT init:
   if(strlen(outputfile)<5){
     printf("No acceptable output file: %s\n", outputfile);
@@ -125,6 +138,7 @@ int main(int argc, char *argv[])
 
   hfile.mkdir ("unsort");
   hfile.mkdir ("tagger");
+  hfile.mkdir ("tagger_scaler");
   hfile.mkdir ("cb");
 
   hfile.cd ("tagger");
@@ -134,8 +148,21 @@ int main(int argc, char *argv[])
     sprintf(name,"TAGGER_TDC_%03d",i);
     pTAGGER_TDC[i]=new TH1D(name,"",20001,-20000,20000);
   }
-  hfile.cd ("cb");
 
+  hfile.cd ("tagger_scaler");
+  no_of_ch=detectors.get_channels(TAGGER_SCALER);
+  TH1D *pTAGGER_acc=new TH1D("Tagger_acc","",no_of_ch,-0.5,no_of_ch-0.5);
+  TH1D *pTAGGER_SCALER_acc=new TH1D("Tagger_Scaler_acc","",no_of_ch,-0.5,no_of_ch-0.5);
+  TH1D *pTAGGER_TAGGEFF_NONCOMPENSATED = new TH1D("Tagger_TaggEff_noncompensated","",no_of_ch,-0.5,no_of_ch-0.5);
+  TH1D *pTAGGER_TAGGEFF = new TH1D("Tagger_TaggEff","",no_of_ch,-0.5,no_of_ch-0.5);
+/*
+  TH1D *pTAGGER_SCALER[no_of_ch];
+  for (Int_t i=0; i<no_of_ch; i++){  
+    sprintf(name,"TAGGER_SCALER_%03d",i);
+    pTAGGER_SCALER[i]=new TH1D(name,"",20001,-20000,20000);
+  }
+*/
+  hfile.cd ("cb");
   no_of_ch=detectors.get_channels(CB_ADC);
   TH1D *pCB_ADC[no_of_ch];
   for (Int_t i=0; i<no_of_ch; i++){  
@@ -159,6 +186,13 @@ int main(int argc, char *argv[])
     if(noe%100000==0) printf("Analysing event: %'d\n",noe);
     // if(noe>=1) m=0;  // exit after x events analysed
 
+ /*
+ if(noe== 8212500) detectors.set_verboselevel(10);
+    if(noe>= 8212590){ // 8212610
+      printf("Analysing event: %'d\n",noe);
+      detectors.set_verboselevel(20);
+    }
+*/    
     if(m==1){  // not eof for these files
       calibrate(); // example for calibration of energy to MeV
       
@@ -182,24 +216,28 @@ int main(int argc, char *argv[])
       for(int ch=0; ch<detectors.get_channels(TAGGER_TDC); ch++){   // sort in taggertime
         for(int hit=0; hit<detectors.get_hits(TAGGER_TDC, ch); hit++){
           data=detectors.get(TAGGER_TDC, ch, hit);
-//          if(data>0) printf("Taggerdata: %d\n", data);
-          if(data>0) pTAGGER_TDC[ch]->Fill(data);
+          if(data>0){
+            pTAGGER_TDC[ch]->Fill(data);
+            pTAGGER_acc->Fill(ch);
+          }
         }
       }
-
+	  
+      for(int ch=0; ch<detectors.get_channels(TAGGER_SCALER); ch++){   // sort in tagger scaler
+        data=detectors.get(TAGGER_SCALER, ch, 0);
+        if(data>0){
+//          pTAGGER_SCALER[ch]->Fill(data);
+          pTAGGER_SCALER_acc->Fill(ch, data);
+ 	      }
+	    }
+	  
       for(int ch=0; ch<detectors.get_channels(CB_ADC); ch++){   // sort in taggertime
         data=detectors.get(CB_ADC, ch, 1);
         if(data>0) pCB_ADC[ch]->Fill(data);
       }
-/*
-      for(int i=0; i<16;i++){   // sort in energy
-        if(ELG[i]>0) pENERGY_LG[i]->Fill(ELG[i]);
-        if(EHG[i]>0) pENERGY_HG[i]->Fill(EHG[i]);
-      }
-*/
-
+    }
 /******* end filling histograms ****************/
-    } 
+     
     if(do_no_of_events==1){
       if(noe>=no_of_events){
 		    m=0;  // end after noe_o_events
@@ -208,6 +246,19 @@ int main(int argc, char *argv[])
 	  }	 
   }while(m==1);  // end of readout loop
 
+  pTAGGER_TAGGEFF_NONCOMPENSATED = (TH1D*)pTAGGER_SCALER_acc->Clone();
+  pTAGGER_TAGGEFF_NONCOMPENSATED->SetTitle("TAGGER_SCALER_acc/TAGGER_acc");
+  pTAGGER_TAGGEFF_NONCOMPENSATED->Divide(pTAGGER_acc);
+   
+  pTAGGER_TAGGEFF = (TH1D*) pTAGGER_TAGGEFF_NONCOMPENSATED->Clone();
+  pTAGGER_TAGGEFF->SetTitle("TaggEff");
+  
+
+  double livetime_scaler = detectors.get_livetime_scaler();
+  double deadtime_scaler = detectors.get_deadtime_scaler();
+  
+  printf("livetime_scaler: %f   deadtime_scaler: %f\n", livetime_scaler, deadtime_scaler);
+  
   printf("Writing root file...\n");	
   hfile.Write();
   hfile.Close();

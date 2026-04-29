@@ -389,6 +389,10 @@ public:
       auto it = ref_data.find(ref_id);
       if (it != ref_data.end()) return it->second;
     }
+	 else{
+	  printf("No reference id found for %d\n", id);
+    }
+	 
     return UINT_MAX;  /* No data found */
   }
 
