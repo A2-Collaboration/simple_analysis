@@ -142,7 +142,7 @@ int main(int argc, char *argv[])
   hfile.mkdir ("cb");
 
   hfile.cd ("tagger");
-  no_of_ch=detectors.get_channels(TAGGER_TDC);
+  no_of_ch=detectors.get_channels(D_TAGGER_TDC);
   TH1D *pTAGGER_TDC[no_of_ch];
   for (Int_t i=0; i<no_of_ch; i++){  
     sprintf(name,"TAGGER_TDC_%03d",i);
@@ -150,11 +150,11 @@ int main(int argc, char *argv[])
   }
 
   hfile.cd ("tagger_scaler");
-  no_of_ch=detectors.get_channels(TAGGER_SCALER);
-  TH1D *pTAGGER_acc=new TH1D("Tagger_acc","",no_of_ch,-0.5,no_of_ch-0.5);
-  TH1D *pTAGGER_SCALER_acc=new TH1D("Tagger_Scaler_acc","",no_of_ch,-0.5,no_of_ch-0.5);
-  TH1D *pTAGGER_TAGGEFF_NONCOMPENSATED = new TH1D("Tagger_TaggEff_noncompensated","",no_of_ch,-0.5,no_of_ch-0.5);
-  TH1D *pTAGGER_TAGGEFF = new TH1D("Tagger_TaggEff","",no_of_ch,-0.5,no_of_ch-0.5);
+  no_of_ch=detectors.get_channels(D_TAGGER_SCALER);
+  TH1D *pTAGGER_acc=new TH1D("Tagger_acc","", no_of_ch+1, 0, no_of_ch);
+  TH1D *pTAGGER_SCALER_acc=new TH1D("Tagger_Scaler_acc","", no_of_ch+1, 0, no_of_ch);
+  TH1D *pTAGGER_TAGGEFF_NONCOMPENSATED = new TH1D("Tagger_TaggEff_noncompensated","", no_of_ch+1, 0, no_of_ch);
+  TH1D *pTAGGER_TAGGEFF = new TH1D("Tagger_TaggEff","", no_of_ch+1, 0, no_of_ch);
 /*
   TH1D *pTAGGER_SCALER[no_of_ch];
   for (Int_t i=0; i<no_of_ch; i++){  
@@ -163,7 +163,7 @@ int main(int argc, char *argv[])
   }
 */
   hfile.cd ("cb");
-  no_of_ch=detectors.get_channels(CB_ADC);
+  no_of_ch=detectors.get_channels(D_CB_ADC);
   TH1D *pCB_ADC[no_of_ch];
   for (Int_t i=0; i<no_of_ch; i++){  
     sprintf(name,"CB_ADC_%03d",i);
@@ -174,7 +174,10 @@ int main(int argc, char *argv[])
 
   // ******* end initialisation histograms **************
   // ******* end root init
- 
+
+
+  unsigned int ho_98=0,   ho_99=0, ho_100=0, ho_101=0, ho_102=0;
+   
   int m=1; 
   unsigned int noe=0;
   long int data;
@@ -208,14 +211,15 @@ int main(int argc, char *argv[])
 // example: detectors.get(CB_TDC, 12, 2);
 
 //   valid detector subsystems:
-//     TAGGER_TDC, TAGGER_SCALER, MWPC_W_TDC, MWPC_S_ADC,
-//     PID_ADC, PID_TDC, CB_ADC, CB_TDC,
-//     VETO_ADC, VETO_TDC, BAF2_S_ADC, BAF2_S_TDC, BAF2_L_ADC, BAF2_L_TDC,
-//     PBWO4_ADC, PBWO4_TDC, PBWO4_S_ADC, PBWO4_S_TDC,
+//  D_TAGGER_TDC, D_TAGGER_SCALER, D_MWPC_W_TDC, D_MWPC_S_ADC,
+//  D_PID_ADC, D_PID_TDC, D_CB_ADC, D_CB_TDC,
+//  D_VETO_ADC, D_VETO_TDC, D_BAF2_S_N_ADC, D_BAF2_S_S_ADC,
+//  D_BAF2_L_N_ADC, D_BAF2_L_S_ADC, D_BAF2_TDC,
+//  D_PBWO4_ADC, D_PBWO4_S_ADC, D_PBWO4_TDC, D_SCALER,
 
-      for(int ch=0; ch<detectors.get_channels(TAGGER_TDC); ch++){   // sort in taggertime
-        for(int hit=0; hit<detectors.get_hits(TAGGER_TDC, ch); hit++){
-          data=detectors.get(TAGGER_TDC, ch, hit);
+      for(int ch=0; ch<detectors.get_channels(D_TAGGER_TDC); ch++){   // sort in taggertime
+        for(int hit=0; hit<detectors.get_hits(D_TAGGER_TDC, ch); hit++){
+          data=detectors.get(D_TAGGER_TDC, ch, hit);
           if(data>0){
             pTAGGER_TDC[ch]->Fill(data);
             pTAGGER_acc->Fill(ch);
@@ -223,16 +227,21 @@ int main(int argc, char *argv[])
         }
       }
 	  
-      for(int ch=0; ch<detectors.get_channels(TAGGER_SCALER); ch++){   // sort in tagger scaler
-        data=detectors.get(TAGGER_SCALER, ch, 0);
+      for(int ch=0; ch<detectors.get_channels(D_TAGGER_SCALER); ch++){   // sort in tagger scaler
+        data=detectors.get(D_TAGGER_SCALER, ch, 0);
         if(data>0){
 //          pTAGGER_SCALER[ch]->Fill(data);
           pTAGGER_SCALER_acc->Fill(ch, data);
- 	      }
-	    }
+		  if(ch== 98){ ho_98++; } 
+		  if(ch== 99){ ho_99++; }
+		  if(ch==100){ ho_100++; } 
+		  if(ch==101){ ho_101++; } 
+		  if(ch==102){ ho_102++; } 
+ 	    }
+	  }
 	  
-      for(int ch=0; ch<detectors.get_channels(CB_ADC); ch++){   // sort in taggertime
-        data=detectors.get(CB_ADC, ch, 1);
+      for(int ch=0; ch<detectors.get_channels(D_CB_ADC); ch++){   // sort in cb adc
+        data=detectors.get(D_CB_ADC, ch, 1);
         if(data>0) pCB_ADC[ch]->Fill(data);
       }
     }
@@ -246,19 +255,24 @@ int main(int argc, char *argv[])
 	  }	 
   }while(m==1);  // end of readout loop
 
-  pTAGGER_TAGGEFF_NONCOMPENSATED = (TH1D*)pTAGGER_SCALER_acc->Clone();
-  pTAGGER_TAGGEFF_NONCOMPENSATED->SetTitle("TAGGER_SCALER_acc/TAGGER_acc");
-  pTAGGER_TAGGEFF_NONCOMPENSATED->Divide(pTAGGER_acc);
-   
-  pTAGGER_TAGGEFF = (TH1D*) pTAGGER_TAGGEFF_NONCOMPENSATED->Clone();
-  pTAGGER_TAGGEFF->SetTitle("TaggEff");
+
+  pTAGGER_TAGGEFF_NONCOMPENSATED->Divide(pTAGGER_acc, pTAGGER_SCALER_acc, 1.0, 1.0, "B");
   
 
-  double livetime_scaler = detectors.get_livetime_scaler();
-  double deadtime_scaler = detectors.get_deadtime_scaler();
+  double clock_scaler = detectors.get_clock_scaler();
+  double inhibit_scaler = detectors.get_inhibit_scaler();
   
-  printf("livetime_scaler: %f   deadtime_scaler: %f\n", livetime_scaler, deadtime_scaler);
-  
+  double norm=1.0;
+  pTAGGER_TAGGEFF->Add(pTAGGER_TAGGEFF_NONCOMPENSATED);
+  pTAGGER_TAGGEFF->Scale(1.0/norm);
+
+  printf("clock_scaler: %'.0f   inhibit_scaler: %'.0f\n", clock_scaler, inhibit_scaler);
+  printf("HO_98: %u   HO_99: %u   HO_100: %u   HO_101: %u   HO_102: %u   \n", ho_98,  ho_99,  ho_100,  ho_101,  ho_102);
+  printf("From histo: Tagger scaler 98: %.0f   Tagger scaler 99: %.0f   Tagger scaler 100: %.0f    Tagger scaler 101: %.0f   Tagger scaler 102: %.0f\n",
+        pTAGGER_SCALER_acc->GetBinContent(98+1),pTAGGER_SCALER_acc->GetBinContent(99+1),pTAGGER_SCALER_acc->GetBinContent(100+1),
+        pTAGGER_SCALER_acc->GetBinContent(101+1),pTAGGER_SCALER_acc->GetBinContent(102+1));
+  // +1: root GetBinHisto 0: underflow bin, bin = 1; first bin with low-edge xlow INCLUDED		 
+
   printf("Writing root file...\n");	
   hfile.Write();
   hfile.Close();

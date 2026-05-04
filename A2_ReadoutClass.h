@@ -31,29 +31,6 @@ enum {
   EMk2SizeDesc    = 256
 };
 
-enum ArrayName {
-  TAGGER_TDC, TAGGER_SCALER,
-  MWPC_W_TDC, MWPC_S_ADC,
-  PID_ADC, PID_TDC,
-  CB_ADC, CB_TDC,
-  VETO_ADC, VETO_TDC,
-  BAF2_S_ADC, BAF2_S_TDC,
-  BAF2_L_ADC, BAF2_L_TDC,
-  PBWO4_ADC, PBWO4_TDC,
-  PBWO4_S_ADC, PBWO4_S_TDC,
-  ARRAY_COUNT
-};
-
-static const char *SUBSYSTEM_NAMES[] = {
-  "TAGGER_TDC", "TAGGER_SCALER",
-  "MWPC_W_TDC", "MWPC_S_ADC", "PID_ADC", "PID_TDC",
-  "CB_ADC", "CB_TDC",
-  "VETO_ADC", "VETO_TDC",
-  "BAF2_S_ADC", "BAF2_S_TDC",
-  "BAF2_L_ADC", "BAF2_L_TDC",
-  "PBWO4_ADC", "PBWO4_TDC",
-  "PBWO4_S_ADC", "PBWO4_S_TDC"
-};
 
 enum EepicsType {
   EepicsBYTE, EepicsSTRING, EepicsSHORT,
@@ -147,7 +124,7 @@ public:
     data.assign(c * h, 0u);
     next_hit.assign(c, 0);
     valid = true;
-    printf("Array2D_init: %s, ch: %ld, max_hits: %ld\n", SUBSYSTEM_NAMES[name], c, h);
+    printf("Array2D_init: %s, ch: %ld, max_hits: %ld\n", getDetectorName(name), c, h);
   }
 
   void clear() {
@@ -157,7 +134,7 @@ public:
 
   uint32_t get(size_t ch, size_t hidx) const {
     if (!valid || ch >= channels || hidx >= hits) {
-      fprintf(stderr, "Warning %s: Accessing invalid element ch=%zu h=%zu\n", SUBSYSTEM_NAMES[own_name], ch, hidx);
+      fprintf(stderr, "Warning %s: Accessing invalid element ch=%zu h=%zu\n", getDetectorName(own_name), ch, hidx);
       return 0;
     }
     return data[index(hidx, ch)];
@@ -177,12 +154,12 @@ public:
 
   void set(size_t ch, long int val) {
     if (!valid || ch >= channels) {
-      fprintf(stderr, "Warning %s: Trying to write to invalid channel %zu\n", SUBSYSTEM_NAMES[own_name], ch);
+      fprintf(stderr, "Warning %s: Trying to write to invalid channel %zu\n", getDetectorName(own_name), ch);
       return;
     }
     size_t hidx = next_hit[ch];
     if (hidx >= hits) {
-      fprintf(stderr, "Warning %s: Channel %zu overflow (capacity %zu hits)\n", SUBSYSTEM_NAMES[own_name], ch, hits);
+      fprintf(stderr, "Warning %s: Channel %zu overflow (capacity %zu hits)\n", getDetectorName(own_name), ch, hits);
 exit(0);
       return;
     }
@@ -192,7 +169,7 @@ exit(0);
 
   void set_at(size_t ch, size_t hidx, long int val) {
     if (!valid || ch >= channels || hidx >= hits) {
-      fprintf(stderr, "Warning %s: Setting invalid element ch=%zu h=%zu\n", SUBSYSTEM_NAMES[own_name], ch, hidx);
+      fprintf(stderr, "Warning %s: Setting invalid element ch=%zu h=%zu\n", getDetectorName(own_name), ch, hidx);
       return;
     }
     data[index(hidx, ch)] = val;
@@ -236,8 +213,8 @@ protected:
   EpicsChan epicschan;
   int verboselvl = 0;
   time_t start_t, end_t; 
-  double livetime_scaler=0;
-  double deadtime_scaler=0;
+  double clock_scaler=0;
+  double inhibit_scaler=0;
 
 public:
   Read_A2_class() = default;
@@ -251,85 +228,87 @@ public:
   int read_one_event(void);
   double get_value(int channel);
   void set_verboselevel(int verboselvl_ = 20){verboselvl = verboselvl_;}
-  double get_livetime_scaler(void){ return livetime_scaler;}
-  double get_deadtime_scaler(void){ return deadtime_scaler;}
+  double get_clock_scaler(void){ return clock_scaler;}
+  double get_inhibit_scaler(void){ return inhibit_scaler;}
   
-  Array2D& tagger_tdc()      { return data_arrays[TAGGER_TDC]; }
-  Array2D& tagger_scaler()   { return data_arrays[TAGGER_SCALER]; }
-  Array2D& mwpc_w_tdc()      { return data_arrays[MWPC_W_TDC]; }
-  Array2D& mwpc_s_adc()      { return data_arrays[MWPC_S_ADC]; }
-  Array2D& pid_adc()         { return data_arrays[PID_ADC]; }
-  Array2D& pid_tdc()         { return data_arrays[PID_TDC]; }
-  Array2D& cb_adc()          { return data_arrays[CB_ADC]; }
-  Array2D& cb_tdc()          { return data_arrays[CB_TDC]; }
-  Array2D& veto_adc()        { return data_arrays[VETO_ADC]; }
-  Array2D& veto_tdc()        { return data_arrays[VETO_TDC]; }
-  Array2D& baf2_s_adc()      { return data_arrays[BAF2_S_ADC]; }
-  Array2D& baf2_s_tdc()      { return data_arrays[BAF2_S_TDC]; }
-  Array2D& baf2_l_adc()      { return data_arrays[BAF2_L_ADC]; }
-  Array2D& baf2_l_tdc()      { return data_arrays[BAF2_L_TDC]; }
-  Array2D& pbwo4_adc()       { return data_arrays[PBWO4_ADC]; }
-  Array2D& pbwo4_tdc()       { return data_arrays[PBWO4_TDC]; }
-  Array2D& pbwo4_s_adc()     { return data_arrays[PBWO4_S_ADC]; }
-  Array2D& pbwo4_s_tdc()     { return data_arrays[PBWO4_S_TDC]; }
+  Array2D& tagger_tdc()      { return data_arrays[D_TAGGER_TDC]; }
+  Array2D& tagger_scaler()   { return data_arrays[D_TAGGER_SCALER]; }
+  Array2D& mwpc_w_tdc()      { return data_arrays[D_MWPC_W_TDC]; }
+  Array2D& mwpc_s_adc()      { return data_arrays[D_MWPC_S_ADC]; }
+  Array2D& pid_adc()         { return data_arrays[D_PID_ADC]; }
+  Array2D& pid_tdc()         { return data_arrays[D_PID_TDC]; }
+  Array2D& cb_adc()          { return data_arrays[D_CB_ADC]; }
+  Array2D& cb_tdc()          { return data_arrays[D_CB_TDC]; }
+  Array2D& veto_adc()        { return data_arrays[D_VETO_ADC]; }
+  Array2D& veto_tdc()        { return data_arrays[D_VETO_TDC]; }
+  
+  Array2D& baf2_s_n_adc()    { return data_arrays[D_BAF2_S_N_ADC]; }
+  Array2D& baf2_s_s_adc()    { return data_arrays[D_BAF2_S_S_ADC]; }
+  Array2D& baf2_l_n_tdc()    { return data_arrays[D_BAF2_L_N_ADC]; }
+  Array2D& baf2_l_s_adc()    { return data_arrays[D_BAF2_L_N_ADC]; }
+  Array2D& baf2_tdc()        { return data_arrays[D_BAF2_TDC]; }
+  
+  Array2D& pbwo4_adc()       { return data_arrays[D_PBWO4_ADC]; }
+  Array2D& pbwo4_s_adc()       { return data_arrays[D_PBWO4_S_ADC]; }
+  Array2D& pbwo4_tdc()       { return data_arrays[D_PBWO4_TDC]; }
 
-  const Array2D& tagger_tdc() const      { return data_arrays[TAGGER_TDC]; }
-  const Array2D& tagger_scaler() const   { return data_arrays[TAGGER_SCALER]; }
-  const Array2D& mwpc_w_tdc() const      { return data_arrays[MWPC_W_TDC]; }
-  const Array2D& mwpc_s_adc() const      { return data_arrays[MWPC_S_ADC]; }
-  const Array2D& pid_adc() const         { return data_arrays[PID_ADC]; }
-  const Array2D& pid_tdc() const         { return data_arrays[PID_TDC]; }
-  const Array2D& cb_adc() const          { return data_arrays[CB_ADC]; }
-  const Array2D& cb_tdc() const          { return data_arrays[CB_TDC]; }
-  const Array2D& veto_adc() const        { return data_arrays[VETO_ADC]; }
-  const Array2D& veto_tdc() const        { return data_arrays[VETO_TDC]; }
-  const Array2D& baf2_s_adc() const      { return data_arrays[BAF2_S_ADC]; }
-  const Array2D& baf2_s_tdc() const      { return data_arrays[BAF2_S_TDC]; }
-  const Array2D& baf2_l_adc() const      { return data_arrays[BAF2_L_ADC]; }
-  const Array2D& baf2_l_tdc() const      { return data_arrays[BAF2_L_TDC]; }
-  const Array2D& pbwo4_adc() const       { return data_arrays[PBWO4_ADC]; }
-  const Array2D& pbwo4_tdc() const       { return data_arrays[PBWO4_TDC]; }
-  const Array2D& pbwo4_s_adc() const     { return data_arrays[PBWO4_S_ADC]; }
-  const Array2D& pbwo4_s_tdc() const     { return data_arrays[PBWO4_S_TDC]; }
+  const Array2D& tagger_tdc() const    { return data_arrays[D_TAGGER_TDC]; }
+  const Array2D& tagger_scaler() const { return data_arrays[D_TAGGER_SCALER]; }
+  const Array2D& mwpc_w_tdc() const    { return data_arrays[D_MWPC_W_TDC]; }
+  const Array2D& mwpc_s_adc() const    { return data_arrays[D_MWPC_S_ADC]; }
+  const Array2D& pid_adc() const       { return data_arrays[D_PID_ADC]; }
+  const Array2D& pid_tdc() const       { return data_arrays[D_PID_TDC]; }
+  const Array2D& cb_adc() const        { return data_arrays[D_CB_ADC]; }
+  const Array2D& cb_tdc() const        { return data_arrays[D_CB_TDC]; }
+  const Array2D& veto_adc() const      { return data_arrays[D_VETO_ADC]; }
+  const Array2D& veto_tdc() const      { return data_arrays[D_VETO_TDC]; }
+  const Array2D& baf2_s_n_adc() const  { return data_arrays[D_BAF2_S_N_ADC]; }
+  const Array2D& baf2_s_s_tdc() const  { return data_arrays[D_BAF2_S_S_ADC]; }
+  const Array2D& baf2_l_n_adc() const  { return data_arrays[D_BAF2_L_N_ADC]; }
+  const Array2D& baf2_l_s_adc() const  { return data_arrays[D_BAF2_L_S_ADC]; }
+  const Array2D& baf2_tdc() const      { return data_arrays[D_BAF2_TDC]; }
+  const Array2D& pbwo4_adc() const     { return data_arrays[D_PBWO4_ADC]; }
+  const Array2D& pbwo4_s_adc() const   { return data_arrays[D_PBWO4_S_ADC]; }
+  const Array2D& pbwo4_tdc() const     { return data_arrays[D_PBWO4_TDC]; }
 
   bool is_active(int name) const {
     return data_arrays[name].is_valid();
   }
 
-  uint32_t get(ArrayName name, size_t ch, size_t hidx) const {
-    if (static_cast<int>(name) < 0 || name >= ARRAY_COUNT) {
+  uint32_t get(int name, size_t ch, size_t hidx) const {
+    if (static_cast<int>(name) < 0 || name >= N_DETECTORS) {
       fprintf(stderr, "Read_A2_class::get – invalid ArrayName %d\n", static_cast<int>(name));
       return 0;
     }
     return data_arrays[name].get(ch, hidx);
   }
 
-  int get_hits(ArrayName name, size_t ch) const {
-    if (static_cast<int>(name) < 0 || name >= ARRAY_COUNT) {
+  int get_hits(int name, size_t ch) const {
+    if (static_cast<int>(name) < 0 || name >= N_DETECTORS) {
       fprintf(stderr, "Read_A2_class::get_hits – invalid ArrayName %d\n", static_cast<int>(name));
       return 0;
     }
     return data_arrays[name].get_hits(ch);
   }
 
-  int get_channels(ArrayName name) const {
-    if (static_cast<int>(name) < 0 || name >= ARRAY_COUNT) {
+  int get_channels(int name) const {
+    if (static_cast<int>(name) < 0 || name >= N_DETECTORS) {
       fprintf(stderr, "Read_A2_class::get_channels – invalid ArrayName %d\n", static_cast<int>(name));
       return 0;
     }
     return data_arrays[name].get_channels();
   }
 
-  const Array2D& array(ArrayName name) const {
-    if (static_cast<int>(name) < 0 || name >= ARRAY_COUNT) {
+  const Array2D& array(int name) const {
+    if (static_cast<int>(name) < 0 || name >= N_DETECTORS) {
       static Array2D dummy;
       return dummy;
     }
     return data_arrays[name];
   }
 
-  Array2D& array(ArrayName name) {
-    if (static_cast<int>(name) < 0 || name >= ARRAY_COUNT) {
+  Array2D& array(int name) {
+    if (static_cast<int>(name) < 0 || name >= N_DETECTORS) {
       static Array2D dummy;
       return dummy;
     }
@@ -337,7 +316,7 @@ public:
   }
 
 private:
-  Array2D data_arrays[ARRAY_COUNT]{};
+  Array2D data_arrays[N_DETECTORS]{};
   int read_one_dataword(unsigned int &dataword);
   void undo_read_one_dataword(void);
   int read_header(void);
@@ -356,27 +335,26 @@ int Read_A2_class::init(const char* _file, const char* configfile, int verboselv
     printf("Configuration failed\n");
     return EXIT_FAILURE;
   }
-  if (verboselvl >= 10) cfg.printSummary();
   time(&start_t);
 
-  data_arrays[TAGGER_TDC]   .init(TAGGER_TDC,    cfg.getnoCh(D_TAGGER), cfg.getTDCMaxHits(D_TAGGER));
-  data_arrays[TAGGER_SCALER].init(TAGGER_SCALER, cfg.getnoCh(D_TAGGER), cfg.getSCALERMaxHits(D_TAGGER));
-  data_arrays[MWPC_W_TDC]   .init(MWPC_W_TDC,    cfg.getnoCh(D_MWPC_W), cfg.getTDCMaxHits(D_MWPC_W));
-//  data_arrays[MWPC_S_ADC]   .init(MWPC_S_ADC,    cfg.getnoCh(D_MWPC_S), cfg.getADCMaxHits(D_MWPC_S));
-  data_arrays[PID_ADC]      .init(PID_ADC,       cfg.getnoCh(D_PID),     cfg.getADCMaxHits(D_PID));
-  data_arrays[PID_TDC]      .init(PID_TDC,       cfg.getnoCh(D_PID),     cfg.getTDCMaxHits(D_PID));
-  data_arrays[CB_ADC]       .init(CB_ADC,        cfg.getnoCh(D_CB),      cfg.getADCMaxHits(D_CB));
-  data_arrays[CB_TDC]       .init(CB_TDC,        cfg.getnoCh(D_CB),      cfg.getTDCMaxHits(D_CB));
-//  data_arrays[VETO_ADC]     .init(VETO_ADC,      cfg.getnoCh(D_VETO),    cfg.getADCMaxHits(D_VETO));
-//  data_arrays[VETO_TDC]     .init(VETO_TDC,      cfg.getnoCh(D_VETO),    cfg.getTDCMaxHits(D_VETO));
-//  data_arrays[BAF2_S_ADC]   .init(BAF2_S_ADC,    cfg.getnoCh(D_BAF2_S),  cfg.getADCMaxHits(D_BAF2_S));
-//  data_arrays[BAF2_S_TDC]   .init(BAF2_S_TDC,    cfg.getnoCh(D_BAF2_S),  cfg.getTDCMaxHits(D_BAF2_S));
-  data_arrays[BAF2_L_ADC]   .init(BAF2_L_ADC,    cfg.getnoCh(D_BAF2_L),  cfg.getADCMaxHits(D_BAF2_L));
-  data_arrays[BAF2_L_TDC]   .init(BAF2_L_TDC,    cfg.getnoCh(D_BAF2_L),  cfg.getTDCMaxHits(D_BAF2_L));
-//  data_arrays[PBWO4_ADC]    .init(PBWO4_ADC,     cfg.getnoCh(D_PBWO4),   cfg.getADCMaxHits(D_PBWO4));
-//  data_arrays[PBWO4_TDC]    .init(PBWO4_TDC,     cfg.getnoCh(D_PBWO4),   cfg.getTDCMaxHits(D_PBWO4));
-//  data_arrays[PBWO4_S_ADC]  .init(PBWO4_S_ADC,   cfg.getnoCh(D_PBWO4_S), cfg.getADCMaxHits(D_PBWO4_S));
-//  data_arrays[PBWO4_S_TDC]  .init(PBWO4_S_TDC,   cfg.getnoCh(D_PBWO4_S), cfg.getTDCMaxHits(D_PBWO4_S));
+  data_arrays[D_TAGGER_TDC]   .init(D_TAGGER_TDC,    cfg.getNoCh(D_TAGGER_TDC),    cfg.getMaxHits(D_TAGGER_TDC));
+  data_arrays[D_TAGGER_SCALER].init(D_TAGGER_SCALER, cfg.getNoCh(D_TAGGER_SCALER), cfg.getMaxHits(D_TAGGER_SCALER));
+  data_arrays[D_MWPC_W_TDC]   .init(D_MWPC_W_TDC,    cfg.getNoCh(D_MWPC_W_TDC),    cfg.getMaxHits(D_MWPC_W_TDC));
+  data_arrays[D_MWPC_S_ADC]   .init(D_MWPC_S_ADC,    cfg.getNoCh(D_MWPC_S_ADC),    cfg.getMaxHits(D_MWPC_S_ADC));
+  data_arrays[D_PID_ADC]      .init(D_PID_ADC,       cfg.getNoCh(D_PID_ADC),       cfg.getMaxHits(D_PID_ADC));
+  data_arrays[D_PID_TDC]      .init(D_PID_TDC,       cfg.getNoCh(D_PID_TDC),       cfg.getMaxHits(D_PID_TDC));
+  data_arrays[D_CB_ADC]       .init(D_CB_ADC,        cfg.getNoCh(D_CB_ADC),        cfg.getMaxHits(D_CB_ADC));
+  data_arrays[D_CB_TDC]       .init(D_CB_TDC,        cfg.getNoCh(D_CB_TDC),        cfg.getMaxHits(D_CB_TDC));
+//  data_arrays[D_VETO_ADC]     .init(D_VETO_ADC,      cfg.getNoCh(D_VETO_ADC),    cfg.getMaxHits(D_VETO_ADC));
+//  data_arrays[D_VETO_TDC]     .init(D_VETO_TDC,      cfg.getNoCh(D_VETO_TDC),    cfg.getMaxHits(D_VETO_TDC));
+//  data_arrays[BAF2_S_S_ADC]   .init(BAF2_S_S_ADC,    cfg.getNoCh(D_BAF2_S_S_ADC),  cfg.getMaxHits(D_BAF2_S_S_ADC));
+//  data_arrays[BAF2_S_N_ADC]   .init(BAF2_S_N_ADC,    cfg.getNoCh(D_BAF2_S_N_ADC),  cfg.getMaxHits(D_BAF2_S_N_ADC));
+//  data_arrays[BAF2_L_S_ADC]   .init(BAF2_L_S_ADC,    cfg.getNoCh(D_BAF2_L_S_ADC),  cfg.getMaxHits(D_BAF2_L_S_ADC));
+//  data_arrays[BAF2_L_N_ADC]   .init(BAF2_L_N_ADC,    cfg.getNoCh(D_BAF2_L_N_ADC),  cfg.getMaxHits(D_BAF2_L_N_ADC));
+//  data_arrays[D_BAF2_TDC]     .init(D_BAF2_TDC,     cfg.getNoCh(D_BAF2_TDC),    cfg.getMaxHits(D_BAF2_TDC));
+//  data_arrays[PBWO4_ADC]    .init(PBWO4_ADC,     cfg.getNoCh(D_PBWO4_ADC),   cfg.getMaxHits(D_PBWO4_ADC));
+//  data_arrays[PBWO4_S_ADC]  .init(PBWO4_S_ADC,   cfg.getNoCh(D_PBWO4_S_ADC), cfg.getMaxHits(D_PBWO4_S_ADC));
+//  data_arrays[PBWO4_TDC]    .init(PBWO4_TDC,     cfg.getNoCh(D_PBWO4_TDC),   cfg.getMaxHits(D_PBWO4_TDC));
   in = fopen(filename, "rb");
   if (in == nullptr) {
     printf("%s doesn't exist!!!\n", filename);
@@ -457,11 +435,13 @@ int Read_A2_class::read_one_event(void) {
   int rv;
   if (verboselvl >= 20)
     printf("\n************* Start reading one event:  *******************\n");
-  for (size_t i = 0; i < ARRAY_COUNT; ++i)
-    data_arrays[i].clear();
-  cfg.reset_ref_data();       // clear reference data
   
+  for (size_t i = 0; i < N_DETECTORS; ++i)
+    data_arrays[i].clear();
+  
+  cfg.reset_ref_data();       // clear reference data
   if(read_event_header()==EEndBuff) return 0;
+ 
   int datablock_count = 0;
 //  int oldvl;
   do {
@@ -500,49 +480,24 @@ int Read_A2_class::read_one_event(void) {
     no_reads += 4;
   } while (dataword != EEndEvent);
 
-  // substract TDC reference
- // TAGGER_TDC,  MWPC_W_TDC, PID_TDC,
-// CB_TDC, PBWO4_TDC, PBWO4_S_TDC,
-/*
-  data_arrays[TAGGER_TDC]   .init(TAGGER_TDC,    cfg.getnoCh(D_TAGGER), cfg.getTDCMaxHits(D_TAGGER));
-  data_arrays[TAGGER_SCALER].init(TAGGER_SCALER, cfg.getnoCh(D_TAGGER), cfg.getSCALERMaxHits(D_TAGGER));
-  data_arrays[MWPC_W_TDC]   .init(MWPC_W_TDC,    cfg.getnoCh(D_MWPC_W), cfg.getTDCMaxHits(D_MWPC_W));
-  data_arrays[MWPC_S_ADC]   .init(MWPC_S_ADC,    cfg.getnoCh(D_MWPC_S), cfg.getADCMaxHits(D_MWPC_S));
-  data_arrays[PID_ADC]      .init(PID_ADC,       cfg.getnoCh(D_PID),     cfg.getADCMaxHits(D_PID));
-  data_arrays[PID_TDC]      .init(PID_TDC,       cfg.getnoCh(D_PID),     cfg.getTDCMaxHits(D_PID));
-  data_arrays[CB_ADC]       .init(CB_ADC,        cfg.getnoCh(D_CB),      cfg.getADCMaxHits(D_CB));
-  data_arrays[CB_TDC]       .init(CB_TDC,        cfg.getnoCh(D_CB),      cfg.getTDCMaxHits(D_CB));
-  data_arrays[VETO_ADC]     .init(VETO_ADC,      cfg.getnoCh(D_VETO),    cfg.getADCMaxHits(D_VETO));
-  data_arrays[VETO_TDC]     .init(VETO_TDC,      cfg.getnoCh(D_VETO),    cfg.getTDCMaxHits(D_VETO));
-  data_arrays[BAF2_S_ADC]   .init(BAF2_S_ADC,    cfg.getnoCh(D_BAF2_S),  cfg.getADCMaxHits(D_BAF2_S));
-  data_arrays[BAF2_S_TDC]   .init(BAF2_S_TDC,    cfg.getnoCh(D_BAF2_S),  cfg.getTDCMaxHits(D_BAF2_S));
-  data_arrays[BAF2_L_ADC]   .init(BAF2_L_ADC,    cfg.getnoCh(D_BAF2_L),  cfg.getADCMaxHits(D_BAF2_L));
-  data_arrays[BAF2_L_TDC]   .init(BAF2_L_TDC,    cfg.getnoCh(D_BAF2_L),  cfg.getTDCMaxHits(D_BAF2_L));
-  data_arrays[PBWO4_ADC]    .init(PBWO4_ADC,     cfg.getnoCh(D_PBWO4),   cfg.getADCMaxHits(D_PBWO4));
-  data_arrays[PBWO4_TDC]    .init(PBWO4_TDC,     cfg.getnoCh(D_PBWO4),   cfg.getTDCMaxHits(D_PBWO4));
-  data_arrays[PBWO4_S_ADC]  .init(PBWO4_S_ADC,   cfg.getnoCh(D_PBWO4_S), cfg.getADCMaxHits(D_PBWO4_S));
-  data_arrays[PBWO4_S_TDC]  .init(PBWO4_S_TDC,   cfg.getnoCh(D_PBWO4_S), cfg.getTDCMaxHits(D_PBWO4_S));
-*/
-
 
   int id;
   long int ref_data, data, diff;
 // Tagger TDC
-
-  for(int ch=0; ch<get_channels(TAGGER_TDC); ch++){
-    id=cfg.get(D_TAGGER).getTDC_id(ch);
+  for(int ch=0; ch<cfg.getNoCh(D_TAGGER_TDC); ch++){
+    id=cfg.getBackId(D_TAGGER_TDC, ch);
     ref_data=cfg.get_ref_data(id);
-    for(int hit=0; hit<(int)data_arrays[TAGGER_TDC].get_hits(ch); hit++){
+    for(int hit=0; hit<(int)data_arrays[D_TAGGER_TDC].get_hits(ch); hit++){
       if(verboselvl>=20 && hit==0) printf("Ch: %d, ID: %d ref_data: %ld\n", ch, id, ref_data);
-	    data=data_arrays[TAGGER_TDC].get(ch, hit);
+	    data=data_arrays[D_TAGGER_TDC].get(ch, hit);
       diff=data-ref_data+10000;
       if(ref_data!=UINT_MAX){  // valid refdata found
         if(diff<0) printf("Referenced time data is smaller 0! %ld", diff);
-        data_arrays[TAGGER_TDC].set_at(ch, hit, diff);
+        data_arrays[D_TAGGER_TDC].set_at(ch, hit, diff);
 	    }
 	     else{
         if(verboselvl>=0) printf("No ref data found for Ch: %d, hit %d, ID: %d\n", ch, hit, id);
-		    data_arrays[TAGGER_TDC].set_at(ch, hit, 0);
+		    data_arrays[D_TAGGER_TDC].set_at(ch, hit, 0);
 	    }
 	  }
   }
@@ -619,11 +574,12 @@ void Read_A2_class::decode_scaler(void) {
 									  tagger_scaler().get(200, 0));
       break;
     }
-    if (verboselvl >= 20) printf("Scaler %4u  value %10u", id, value);
-    if(id==190) livetime_scaler+=value;
-    if(id==191) deadtime_scaler+=value;
-    ch = cfg.get(D_TAGGER).getScaler_ch(id);
+    if (verboselvl >= 20) printf("Scaler %4u  value %10u\n", id, value);
+    if(id==191){ printf("Clock scaler   %4u  value %'10u\n", id, value); clock_scaler+=value;}
+    if(id==190){ printf("Inhibit scaler %4u  value %'10u\n", id, value); inhibit_scaler+=value;}
+    ch = cfg.getChannel(D_TAGGER_SCALER, id);
     if (ch >= 0) {
+	  if(ch>=99 && ch<=101) printf("******** TaggerScaler Ch %i value %i\n", ch, value);
 	  tagger_scaler().set(ch, value);
       if (verboselvl >= 20)
         printf("   Tagger Scaler hit: %4i (ch %3i) V %10u\n", id, ch, value);
@@ -706,95 +662,100 @@ void Read_A2_class::decode_adc(unsigned int dataword) {
   // test if id is an reference tdc channel and store it if it matches
   cfg.store_ref_data(id, value);
 
-  ch = cfg.get(D_TAGGER).getTDC_ch(id);
+  ch = cfg.getChannel(D_TAGGER_TDC, id);
   if (ch >= 0) {
     if (verboselvl>= 20) printf("   TAGGER TDC hit: %4i (ch %3i) V %5i", id, ch, value);
     tagger_tdc().set(ch, value);
   }
   
-  ch = cfg.get(D_MWPC_W).getTDC_ch(id);
+  ch = cfg.getChannel(D_MWPC_W_TDC, id);
   if(ch >= 0){
     if(verboselvl>= 20) printf("   MWPC TDC hit: %4i (ch %3i) V %5i", id, ch, value);
     mwpc_w_tdc().set(ch, value);
   }
-  ch = cfg.get(D_MWPC_S).getADC_ch(id);
+  ch = cfg.getChannel(D_MWPC_S_ADC, id);
   if(ch >=0){
     if(verboselvl>= 20) printf("   MWPC ADC hit: %4i (ch %3i) V %5i", id, ch, value);
     mwpc_s_adc().set(ch, value);
   }
 
-  ch = cfg.get(D_PID).getADC_ch(id);
+  ch = cfg.getChannel(D_PID_ADC, id);
   if(ch >= 0){
     if(verboselvl>= 20) printf("   PID ADC hit: %4i (ch %3i) V %5i", id, ch, value);
     pid_adc().set(ch, value);
   }
-  ch = cfg.get(D_PID).getTDC_ch(id);
+  ch = cfg.getChannel(D_PID_TDC, id);
   if(ch >= 0){
     if(verboselvl>=20) printf("   PID TDC hit: %4i (ch %3i) V %5i", id, ch, value);
     pid_tdc().set(ch, value);
   }
-  ch = cfg.get(D_CB).getADC_ch(id);
+  ch = cfg.getChannel(D_CB_ADC, id);
   if(ch >= 0){
     if(verboselvl>=20) printf("   CB ADC hit: %4i (ch %3i) V %5i", id, ch, value);
     cb_adc().set(ch, value);
   }
-  ch = cfg.get(D_CB).getTDC_ch(id);
+  ch = cfg.getChannel(D_CB_TDC, id);
   if(ch >= 0){
     if(verboselvl>=20) printf("   CB TDC hit: %4i (ch %3i) V %5i", id, ch, value);
     cb_tdc().set(ch, value);
   }
 
-  ch = cfg.get(D_VETO).getADC_ch(id);
+  ch = cfg.getChannel(D_VETO_ADC, id);
   if(ch >= 0){
     if(verboselvl>=20) printf("   VETO ADC hit: %4i (ch %3i) V %5i", id, ch, value);
     veto_adc().set(ch, value);
   }
-  ch = cfg.get(D_VETO).getTDC_ch(id);
+  ch = cfg.getChannel(D_VETO_TDC, id);
   if(ch >= 0){
     if(verboselvl>=20) printf("   VETO TDC hit: %4i (ch %3i) V %5i", id, ch, value);
     veto_tdc().set(ch, value);
   }
   
-  ch = cfg.get(D_PBWO4).getADC_ch(id);
+  ch = cfg.getChannel(D_PBWO4_ADC, id);
   if(ch >= 0){
     if(verboselvl>=20) printf("   PWO ADC hit: %4i (ch %3i) V %5i", id, ch, value);
     pbwo4_adc().set(ch, value);
   }
-  ch = cfg.get(D_PBWO4).getTDC_ch(id);
+  ch = cfg.getChannel(D_PBWO4_TDC, id);
   if(ch >= 0){
     if(verboselvl>=20) printf("   PWO TDC hit: %4i (ch %3i) V %5i", id, ch, value);
     pbwo4_tdc().set(ch, value);
   }
-  ch = cfg.get(D_PBWO4_S).getADC_ch(id);
+  ch = cfg.getChannel(D_PBWO4_S_ADC, id);
   if(ch >= 0){
     if(verboselvl>=20) printf("   PWO sens ADC hit: %4i (ch %3i) V %5i", id, ch, value);
     pbwo4_s_adc().set(ch, value);
   }
-  ch = cfg.get(D_PBWO4_S).getTDC_ch(id);
+  ch = cfg.getChannel(D_PBWO4_TDC, id);
   if(ch >= 0){
     if(verboselvl>=20) printf("   PWO sens TDC hit: %4i (ch %3i) V %5i", id, ch, value);
-    pbwo4_s_tdc().set(ch, value);
+    pbwo4_tdc().set(ch, value);
   }
     
-  ch = cfg.get(D_BAF2_S).getADC_ch(id);
+  ch = cfg.getChannel(D_BAF2_S_N_ADC, id);
   if(ch >= 0){
-    if(verboselvl>=20) printf("   BaF2 short ADC hit: %4i (ch %3i) V %5i", id, ch, value);
-    baf2_s_adc().set(ch, value);
+    if(verboselvl>=20) printf("   BaF2 short nonsens ADC hit: %4i (ch %3i) V %5i", id, ch, value);
+    baf2_s_n_adc().set(ch, value);
   }
-  ch = cfg.get(D_BAF2_L).getADC_ch(id);
+  ch = cfg.getChannel(D_BAF2_L_N_ADC, id);
   if(ch >= 0){
-    if(verboselvl>=20) printf("   BaF2 long ADC hit: %4i (ch %3i) V %5i", id, ch, value);
-    baf2_l_adc().set(ch, value);
+    if(verboselvl>=20) printf("   BaF2 long snonens ADC hit: %4i (ch %3i) V %5i", id, ch, value);
+    baf2_l_s_adc().set(ch, value);
   }
-  ch = cfg.get(D_BAF2_L).getTDC_ch(id);
+  ch = cfg.getChannel(D_BAF2_S_S_ADC, id);
+  if(ch >= 0){
+    if(verboselvl>=20) printf("   BaF2 short sens ADC hit: %4i (ch %3i) V %5i", id, ch, value);
+    baf2_s_s_adc().set(ch, value);
+  }
+  ch = cfg.getChannel(D_BAF2_L_S_ADC, id);
+  if(ch >= 0){
+    if(verboselvl>=20) printf("   BaF2 long sens ADC hit: %4i (ch %3i) V %5i", id, ch, value);
+    baf2_l_s_adc().set(ch, value);
+  }
+  ch = cfg.getChannel(D_BAF2_TDC, id);
   if(ch >= 0){
     if(verboselvl>=20) printf("   BaF2 long TDC hit: %4i (ch %3i) V %5i", id, ch, value);
-    baf2_l_tdc().set(ch, value);
-  }
-  ch = cfg.get(D_BAF2_S).getTDC_ch(id);
-  if(ch >= 0){
-    if(verboselvl>=20) printf("   BaF2 short TDC hit: %4i (ch %3i) V %5i", id, ch, value);
-    baf2_s_tdc().set(ch, value);
+    baf2_tdc().set(ch, value);
   }
   
   if(id == 400 && verboselvl >= 20)
