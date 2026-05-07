@@ -1,0 +1,28 @@
+# The configuration files can be found on daq-master
+
+#Accepted detectors / scaler trigger words: TAGGER, MWPC_W, MWPC_S, PID, CB, VETO, PBWO4, PBWO4_S, BAF2_S, BAF2_L, SCALER
+# example: CB 3 1 0 Detector-NaI.dat
+# Trigger Pos_ADC #ADC_Hits Pos_TDC #TDC_Hits   Pos_Scaler #ScalerHits Filename
+
+TAGGER        0       0         6       10        16           3         config_2018/Detector-FPD-Jul2018-883p12MeV-1p06034T_NEW.dat
+#TAGGER        0       0         6       10        16           3         config_2018/Detector-FPD-Mar2018-883p29MeV-1p05990T_NEW.dat
+MWPC_W        0       0         6       110         0           0         config_2018/Detector-MWPC-2018.dat
+#MWPC_S        1       6         0        0         0           0         config_2025/Detector-MwpcStrips.dat
+
+PID           1       6         6       10         0           0         config_2018/Detector-PID.dat
+CB            1       6         6       10         0           0         config_2018/Detector-NaI.dat
+
+#VETO          1       1         6       8          0           0         config_2025/Detector-Veto.dat
+#BAF2_S        1       1         6       1          0           0         config_2025/Detector-BaF2_S.dat
+BAF2_L        1       1         6       1          0           0         config_2018/Detector-BaF2-PbWO4.dat
+
+#PBWO4         1       1         6       8          0           0         config_2025/Detector-PbWO4.dat
+#PBWO4_S       1       1         6       8          0           0         config_2025/Detector-PbWO4_S.dat
+#SCALER
+
+
+# TDC REF   Ch_Range_Start   Ch_Range_Stop   RefCh   Comment
+TDC_REF             800             926        927   TAGGER TDC
+TDC_REF             928            1054       1055   TAGGER TDC
+TDC_REF            1056            1182       1183   TAGGER TDC
+TDC_REF            2001            2767       2000   CB TDC

@@ -504,7 +504,7 @@ int Read_A2_class::read_one_event(void) {
 //  exit(0);
   // end substract TDC reference
   
-  if (verboselvl >= 10) printf("\n %i data blocks in event\n", datablock_count);
+  if (verboselvl >= 20) printf("\n %i data blocks in event\n", datablock_count);
   if (verboselvl >= 20) printf("\n");
   ++noe;
   return rv;
@@ -514,7 +514,7 @@ int Read_A2_class::read_event_header(void) {
   fread_or_die(&eventheaderinfo, sizeof(eventheaderinfo), 1, in, "Read_A2_class::read_event_header");
   events += sizeof(eventheaderinfo) / 4;
   if(eventheaderinfo.evNo==eventheaderinfo.evLen) return eventheaderinfo.evLen; // should be EEndBuff
-  if (verboselvl >= 10) {
+  if (verboselvl >= 20) {
     printf("  Event: %u, len: %u, adcInd: %i, adcCnt: %i\n\n",
            eventheaderinfo.evNo,
            eventheaderinfo.evLen,
@@ -557,7 +557,7 @@ void Read_A2_class::undo_read_one_dataword(void) {
 void Read_A2_class::decode_scaler(void) {
   unsigned int id, value;
   int ch;
-  if (verboselvl >= 10) printf("Scaler block detected\n");
+  if (verboselvl >= 20) printf("Scaler block detected\n");
   for (int i = 0; i < 2000; ++i) {
     if(read_one_dataword(value)==0){
       printf("EoF in scaler event\n");
@@ -569,17 +569,17 @@ void Read_A2_class::decode_scaler(void) {
     }
     if(id == 0xfefefefe) {
       if(verboselvl >= 20) printf("****** End of scaler block \n");
-      if(verboselvl >= 30) printf("Tagger scaler data ch 10: %d, ch 100: %d, ch 200: %d\n", 
+      if(verboselvl >= 11) printf("Tagger scaler data ch 10: %d, ch 100: %d, ch 200: %d\n", 
                                       tagger_scaler().get(10, 0), tagger_scaler().get(100, 0),
 									  tagger_scaler().get(200, 0));
       break;
     }
     if (verboselvl >= 20) printf("Scaler %4u  value %10u\n", id, value);
-    if(id==191){ printf("Clock scaler   %4u  value %'10u\n", id, value); clock_scaler+=value;}
-    if(id==190){ printf("Inhibit scaler %4u  value %'10u\n", id, value); inhibit_scaler+=value;}
+    if(id==191 && verboselvl >=11){ printf("Clock scaler   %4u  value %'10u\n", id, value); clock_scaler+=value;}
+    if(id==190 && verboselvl >=11){ printf("Inhibit scaler %4u  value %'10u\n", id, value); inhibit_scaler+=value;}
     ch = cfg.getChannel(D_TAGGER_SCALER, id);
     if (ch >= 0) {
-	  if(ch>=99 && ch<=101) printf("******** TaggerScaler Ch %i value %i\n", ch, value);
+	  if(ch>=99 && ch<=101 && verboselvl>=11) printf("******** TaggerScaler Ch %i value %i\n", ch, value);
 	  tagger_scaler().set(ch, value);
       if (verboselvl >= 20)
         printf("   Tagger Scaler hit: %4i (ch %3i) V %10u\n", id, ch, value);
@@ -610,36 +610,36 @@ void Read_A2_class::decode_epics(void) {
     fread_or_die(&nelem,   2, 1, in, "Read_A2_class::decode_epics – nelem field");
     fread_or_die(&type,    2, 1, in, "Read_A2_class::decode_epics – type field");
     events += 32 / 4;
-    if (verboselvl >= 20)
+    if (verboselvl >= 10)
       printf("  %i, PV: %s, bytes %u, elements=%u, type=%u, var: ",
              i, pvname, bytes, nelem, type);
     switch (type) {
       case EepicsBYTE:
         fread_or_die(&varB, ESizeBYTE, 1, in, "Read_A2_class::decode_epics – BYTE payload");
-        if (verboselvl >= 20) printf("%i\n", static_cast<int>(varB));
+        if (verboselvl >= 10) printf("%i\n", static_cast<int>(varB));
         break;
       case EepicsSTRING:
         fread_or_die(varStr, ESizeSTRING, 1, in, "Read_A2_class::decode_epics – STRING payload");
-        if (verboselvl >= 20) printf("%s\n", varStr);
+        if (verboselvl >= 10) printf("%s\n", varStr);
         break;
       case EepicsSHORT:
         fread_or_die(&varS, ESizeSHORT, 1, in, "Read_A2_class::decode_epics – SHORT payload");
-        if (verboselvl >= 20) printf("%i\n", static_cast<int>(varS));
+        if (verboselvl >= 10) printf("%i\n", static_cast<int>(varS));
         break;
       case EepicsLONG:
         fread_or_die(&varL, ESizeLONG, 1, in, "Read_A2_class::decode_epics – LONG payload");
-        if (verboselvl >= 20) printf("%ld\n", varL);
+        if (verboselvl >= 10) printf("%ld\n", varL);
         break;
       case EepicsFLOAT:
         fread_or_die(&varF, ESizeFLOAT, 1, in, "Read_A2_class::decode_epics – FLOAT payload");
-        if (verboselvl >= 20) printf("%f\n", varF);
+        if (verboselvl >= 10) printf("%f\n", varF);
         break;
       case EepicsDOUBLE:
         fread_or_die(&varD, ESizeDOUBLE, 1, in, "Read_A2_class::decode_epics – DOUBLE payload");
-        if (verboselvl >= 20) printf("%f\n", varD);
+        if (verboselvl >= 10) printf("%f\n", varD);
         break;
       default:
-        if (verboselvl >= 20)
+        if (verboselvl >= 10)
           printf("\nWARNING: Unknown epics data type: %u for EPICS channel %s\n",
                  type, pvname);
     }
