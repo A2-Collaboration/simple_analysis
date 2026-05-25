@@ -204,8 +204,18 @@ public:
 
           // Read mapping from file
           readDatFile(det, datFile);
+          
         }
-
+        
+        // test
+        if(verboselvl>=1){
+          int int_ch, int_id;
+          for(int ch=0; ch<getNoCh(det); ch++){
+            int_id=getBackId(det, ch);
+            int_ch=getChannel(det, int_id);
+            printf("det: %2i (%s), ch: %3i, id: %4i, ch from id: %3i\n", det, getDetectorName(det), ch, int_id, int_ch);
+          }
+        }
         continue;
       }
 

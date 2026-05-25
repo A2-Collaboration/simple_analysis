@@ -244,7 +244,7 @@ public:
   
   Array2D& baf2_s_n_adc()    { return data_arrays[D_BAF2_S_N_ADC]; }
   Array2D& baf2_s_s_adc()    { return data_arrays[D_BAF2_S_S_ADC]; }
-  Array2D& baf2_l_n_tdc()    { return data_arrays[D_BAF2_L_N_ADC]; }
+  Array2D& baf2_l_n_adc()    { return data_arrays[D_BAF2_L_N_ADC]; }
   Array2D& baf2_l_s_adc()    { return data_arrays[D_BAF2_L_N_ADC]; }
   Array2D& baf2_tdc()        { return data_arrays[D_BAF2_TDC]; }
   
@@ -528,7 +528,7 @@ int Read_A2_class::read_one_dataword(unsigned int &dataword) {
   int rv = fread(&dataword, sizeof(dataword), 1, in);
   events++;
   if (rv == 0) return 0;
-  if (verboselvl >= 20) printf("ROD: 0x%08x:  ", dataword);
+  if (verboselvl >= 20) printf("ROD: 0x%08x (%u):  ", dataword, dataword);
   if (events % wie_oft == 0){
     double percent=static_cast<double>(events) / (no_of_int_in_file-zero_offset) * 100.0;
     time(&end_t);
@@ -556,9 +556,12 @@ void Read_A2_class::undo_read_one_dataword(void) {
 
 void Read_A2_class::decode_scaler(void) {
   unsigned int id, value;
+  int current_vbl=verboselvl;
   int ch;
+  
   if (verboselvl >= 20) printf("Scaler block detected\n");
-  for (int i = 0; i < 2000; ++i) {
+  while(1){
+//    verboselvl=100;
     if(read_one_dataword(value)==0){
       printf("EoF in scaler event\n");
       break;
@@ -567,6 +570,7 @@ void Read_A2_class::decode_scaler(void) {
       printf("EoF in scaler event\n");
       break;
     }
+    verboselvl=current_vbl;
     if(id == 0xfefefefe) {
       if(verboselvl >= 20) printf("****** End of scaler block \n");
       if(verboselvl >= 11) printf("Tagger scaler data ch 10: %d, ch 100: %d, ch 200: %d\n", 
@@ -574,13 +578,20 @@ void Read_A2_class::decode_scaler(void) {
 									  tagger_scaler().get(200, 0));
       break;
     }
+    
     if (verboselvl >= 20) printf("Scaler %4u  value %10u\n", id, value);
     if(id==191 && verboselvl >=11){ printf("Clock scaler   %4u  value %'10u\n", id, value); clock_scaler+=value;}
     if(id==190 && verboselvl >=11){ printf("Inhibit scaler %4u  value %'10u\n", id, value); inhibit_scaler+=value;}
     ch = cfg.getChannel(D_TAGGER_SCALER, id);
     if (ch >= 0) {
-	  if(ch>=99 && ch<=101 && verboselvl>=11) printf("******** TaggerScaler Ch %i value %i\n", ch, value);
-	  tagger_scaler().set(ch, value);
+      if(ch>=140 && ch<=150) printf("******** TaggerScaler Ch %3i (id %4i) value %i (0x%x)\n", ch, id, value, value);
+      if(ch==1 || ch==13 || ch==21) printf("******** TaggerScaler Ch %3i (id %4i) value %i (0x%x)\n", ch, id, value, value);
+      if(id==2079){
+        printf("Stuck bit (0x4000) in 2079, fill value&0xffffbfff\n");
+        value=value&0xffffbfff;
+      }
+      
+	    tagger_scaler().set(ch, value&0xffffbfff);
       if (verboselvl >= 20)
         printf("   Tagger Scaler hit: %4i (ch %3i) V %10u\n", id, ch, value);
     }
