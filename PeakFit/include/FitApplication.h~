@@ -1,0 +1,19 @@
+#pragma once
+#include <memory>
+#include <string>
+
+class AnalysisContext;
+
+
+class FitApplication
+{
+public:
+    FitApplication(const std::string& file);
+    ~FitApplication();
+
+    void Run();
+
+private:
+    std::string fFile;
+    std::unique_ptr<AnalysisContext> fCtx;
+};

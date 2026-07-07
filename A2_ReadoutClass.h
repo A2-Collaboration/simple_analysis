@@ -283,6 +283,14 @@ public:
     return data_arrays[name].get(ch, hidx);
   }
 
+  const std::array<int,12>& getNeighbours(int det, int element) const{
+    return cfg.getNeighbours(det, element);
+  }
+  
+  int getNeighbour(int det, int element, int neighbourNo) const{
+    return cfg.getNeighbour(det, element, neighbourNo);
+  }
+  
   int get_hits(int name, size_t ch) const {
     if (static_cast<int>(name) < 0 || name >= N_DETECTORS) {
       fprintf(stderr, "Read_A2_class::get_hits – invalid ArrayName %d\n", static_cast<int>(name));
@@ -584,10 +592,10 @@ void Read_A2_class::decode_scaler(void) {
     if(id==190 && verboselvl >=11){ printf("Inhibit scaler %4u  value %'10u\n", id, value); inhibit_scaler+=value;}
     ch = cfg.getChannel(D_TAGGER_SCALER, id);
     if (ch >= 0) {
-      if(ch>=140 && ch<=150) printf("******** TaggerScaler Ch %3i (id %4i) value %i (0x%x)\n", ch, id, value, value);
-      if(ch==1 || ch==13 || ch==21) printf("******** TaggerScaler Ch %3i (id %4i) value %i (0x%x)\n", ch, id, value, value);
+      //      if(ch>=140 && ch<=150) printf("******** TaggerScaler Ch %3i (id %4i) value %i (0x%x)\n", ch, id, value, value);
+      //if(ch==1 || ch==13 || ch==21) printf("******** TaggerScaler Ch %3i (id %4i) value %i (0x%x)\n", ch, id, value, value);
       if(id==2079){
-        printf("Stuck bit (0x4000) in 2079, fill value&0xffffbfff\n");
+        //  printf("Stuck bit (0x4000) in 2079, fill value&0xffffbfff\n");
         value=value&0xffffbfff;
       }
       

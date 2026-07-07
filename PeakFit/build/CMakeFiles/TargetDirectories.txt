@@ -1,0 +1,3 @@
+/media/sdb1/Video/sdk/AcquC/PeakFit/build/CMakeFiles/peakfit.dir
+/media/sdb1/Video/sdk/AcquC/PeakFit/build/CMakeFiles/edit_cache.dir
+/media/sdb1/Video/sdk/AcquC/PeakFit/build/CMakeFiles/rebuild_cache.dir

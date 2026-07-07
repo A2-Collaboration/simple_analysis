@@ -140,6 +140,8 @@ int main(int argc, char *argv[])
   hfile.mkdir ("tagger");
   hfile.mkdir ("tagger_scaler");
   hfile.mkdir ("cb");
+  hfile.mkdir ("cb_w_time");
+  hfile.mkdir ("cb_single");
 
   hfile.cd ("tagger");
   no_of_ch=detectors.get_channels(D_TAGGER_TDC);
@@ -169,6 +171,21 @@ int main(int argc, char *argv[])
     sprintf(name,"CB_ADC_%03d",i);
     pCB_ADC[i]=new TH1D(name,"",BINS-0,0,RANGE);
   }
+  hfile.cd ("cb_w_time");
+  no_of_ch=detectors.get_channels(D_CB_ADC);
+  TH1D *pCB_w_time_ADC[no_of_ch];
+  for (Int_t i=0; i<no_of_ch; i++){  
+    sprintf(name,"CB_w_time_ADC_%03d",i);
+    pCB_w_time_ADC[i]=new TH1D(name,"",BINS-0,0,RANGE);
+  }
+ 
+  hfile.cd ("cb_single");
+  no_of_ch=detectors.get_channels(D_CB_ADC);
+  TH1D *pCB_single_ADC[no_of_ch];
+  for (Int_t i=0; i<no_of_ch; i++){  
+    sprintf(name,"CB_single_ADC_%03d",i);
+    pCB_single_ADC[i]=new TH1D(name,"",BINS-0,0,RANGE);
+  }
  
   hfile.cd ("unsort");
 
@@ -180,7 +197,7 @@ int main(int argc, char *argv[])
    
   int m=1; 
   unsigned int noe=0;
-  long int data;
+  long int data, data2, n_sum;
   printf("Analysing event: %'d\n",noe);
   do{ // begining of the readout loop 
     m=detectors.read_one_event();  // reads one full event into internal buffer, !=0 if there is any data
@@ -242,7 +259,25 @@ int main(int argc, char *argv[])
 	  
       for(int ch=0; ch<detectors.get_channels(D_CB_ADC); ch++){   // sort in cb adc
         data=detectors.get(D_CB_ADC, ch, 1);
-        if(data>0) pCB_ADC[ch]->Fill(data);
+        if(data>0){  // detector has data
+          pCB_ADC[ch]->Fill(data);
+          data2=detectors.get(D_CB_TDC, ch, 0);
+          if(data2>0){  // detector has also time
+            pCB_w_time_ADC[ch]->Fill(data);
+            // now I will loop over all the neighbours and add the data
+            n_sum=0;
+            const auto &neighbours = detectors.getNeighbours(D_CB_ADC, ch);
+            for(int i = 0; i < 12; i++){
+              int neighbour = neighbours[i];
+              if(neighbour < 0) continue;
+              data2=detectors.get(D_CB_ADC, neighbour, 1); // get adc from neighbour
+              if(data2>0){ n_sum+=data2;}
+            }
+            if(n_sum<5){  // if the sum of all neighbours are smaller than threshold
+              pCB_single_ADC[ch]->Fill(data);
+            }
+          }
+        }
       }
     }
 /******* end filling histograms ****************/
