@@ -160,7 +160,6 @@ public:
     size_t hidx = next_hit[ch];
     if (hidx >= hits) {
       fprintf(stderr, "Warning %s: Channel %zu overflow (capacity %zu hits)\n", getDetectorName(own_name), ch, hits);
-exit(0);
       return;
     }
     data[index(hidx, ch)] = val;
